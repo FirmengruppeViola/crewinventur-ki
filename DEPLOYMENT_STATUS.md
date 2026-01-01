@@ -10,7 +10,7 @@
 |---------|--------|-----|---------|
 | **GitHub** | ✅ LIVE | https://github.com/FirmengruppeViola/crewinventur-ki | Repo mit allen Configs |
 | **Supabase** | ✅ LIVE | https://pzgpvwzmlssmepvqtgnq.supabase.co | Database + Auth + Storage |
-| **Railway** | ⚠️ PENDING | https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67 | Backend deployed, ENV VARS fehlen |
+| **Railway** | ✅ LIVE | https://crewinventur-ki-backend-production.up.railway.app | Backend LIVE + Health Check OK |
 | **Cloudflare Pages** | ✅ LIVE | https://crewinventur-ki.pages.dev | Frontend deployed + ENV VARS gesetzt |
 
 ---
@@ -36,28 +36,17 @@
 | Projekt | ✅ CREATED | ID: f355ab60-ecba-457c-acdc-93147c8d3a67 |
 | Service | ✅ DEPLOYED | ID: 31373cf8-ca09-4267-b2e6-28ac7d860aac |
 | Build | ✅ SUCCESS | Nixpacks + Python 3.13.9 |
-| Environment Variables | ⚠️ **TODO** | Müssen manuell gesetzt werden |
+| Environment Variables | ✅ SET | Alle 6 Variables via GraphQL API gesetzt |
+| Public URL | ✅ LIVE | https://crewinventur-ki-backend-production.up.railway.app |
+| Health Check | ✅ OK | {"status":"ok","service":"CrewInventurKI"} |
 
-### ⚠️ Railway Environment Variables TODO
-
-**Dashboard:** https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67
-
-1. Klicke auf den Backend-Service
-2. Gehe zu "Variables" Tab
-3. Füge hinzu:
-
-```
-SUPABASE_URL=https://pzgpvwzmlssmepvqtgnq.supabase.co
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6Z3B2d3ptbHNzbWVwdnF0Z25xIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzMwNjQzMiwiZXhwIjoyMDgyODgyNDMyfQ.27ocqOKDgSjqRarSggcCrPOtomGRShKF3lZxWxmw31c
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6Z3B2d3ptbHNzbWVwdnF0Z25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDY0MzIsImV4cCI6MjA4Mjg4MjQzMn0.Ue9gEhbjCWt1hZO9hxKmMAvn4_q8Og_wUf3Tfuf7PSc
-GOOGLE_GEMINI_API_KEY=placeholder-gemini-key
-SECRET_KEY=production-secret-key-change-later
-ENVIRONMENT=production
-```
-
-4. Klicke "Deploy" um neu zu deployen mit den Variables
-
-**Nach dem Setzen:** Railway URL wird verfügbar (z.B. `https://crewinventur-ki-backend-production.up.railway.app`)
+**Environment Variables (gesetzt via GraphQL API):**
+- ✅ SUPABASE_URL
+- ✅ SUPABASE_SERVICE_KEY
+- ✅ SUPABASE_ANON_KEY
+- ✅ GOOGLE_GEMINI_API_KEY (placeholder)
+- ✅ SECRET_KEY
+- ✅ ENVIRONMENT=production
 
 ---
 
@@ -77,9 +66,9 @@ ENVIRONMENT=production
 
 ## 📋 Nächste Schritte
 
-1. ⚠️ **Railway Environment Variables setzen** (siehe Anleitung oben)
-2. ✅ Frontend testen: https://crewinventur-ki.pages.dev
-3. ⏳ Backend-URL testen sobald ENV VARS gesetzt (GET /health)
+1. ✅ **Railway Environment Variables gesetzt** (alle 6 via GraphQL API)
+2. ✅ **Frontend testen:** https://crewinventur-ki.pages.dev
+3. ✅ **Backend testen:** https://crewinventur-ki-backend-production.up.railway.app/health
 4. 🎯 **Phase 1 starten:** Authentication + Core UI
 
 ---
@@ -111,7 +100,7 @@ npm run dev  # Startet auf :5173
 | Railway Dashboard | https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67 |
 | Cloudflare Pages | https://dash.cloudflare.com → Pages → crewinventur-ki |
 | Frontend LIVE | https://crewinventur-ki.pages.dev |
-| Backend LIVE | ⏳ Nach ENV VARS Setup |
+| Backend LIVE | https://crewinventur-ki-backend-production.up.railway.app |
 
 ---
 
@@ -124,6 +113,8 @@ npm run dev  # Startet auf :5173
 - [x] Railway Projekt + Service Deploy
 - [x] Cloudflare Pages Projekt + Deploy
 - [x] Frontend Environment Variables
-- [ ] Backend Environment Variables (manueller Schritt)
+- [x] Backend Environment Variables (via GraphQL API)
+- [x] Backend Public URL generiert
+- [x] Health Check verified
 
-**Status:** 95% Complete - Bereit für Coding Phase 1! 🚀
+**Status:** 100% Complete - Full Stack LIVE! 🚀
