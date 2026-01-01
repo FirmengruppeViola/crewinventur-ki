@@ -73,3 +73,6 @@ dmypy.json
 
 # Auto Claude data directory
 .auto-claude/
+
+# Implementation Plan (contains credentials)
+IMPLEMENTATION_PLAN.xml
