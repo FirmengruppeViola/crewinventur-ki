@@ -13,6 +13,14 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 GOOGLE_GEMINI_API_KEY=placeholder-gemini-key
 SECRET_KEY=production-secret-key-change-later
 ENVIRONMENT=production
+SMTP_HOST=82.165.96.118
+SMTP_PORT=465
+SMTP_USER=your-smtp-user
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM=inventur@euredomain.de
+SMTP_USE_TLS=false
+SMTP_USE_SSL=true
+SMTP_VERIFY_CERT=false
 ```
 
 ## Schritt-für-Schritt Anleitung

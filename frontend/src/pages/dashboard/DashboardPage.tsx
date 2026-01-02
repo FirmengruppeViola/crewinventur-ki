@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowRight, MapPin, Package, Play, History, FileText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useLocations } from '../../features/locations/useLocations'
@@ -11,48 +12,102 @@ export function DashboardPage() {
   const { data: sessions } = useInventorySessions()
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-600">
-          Willkommen zurueck. Starte eine neue Inventur oder behalte den Status im Blick.
+    <div className="space-y-6 animate-fade-in">
+      <header className="flex flex-col gap-1 px-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Übersicht</h1>
+        <p className="text-muted-foreground">
+          Alles im grünen Bereich. Was steht heute an?
         </p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card title="Locations">
-          <p className="text-2xl font-semibold text-gray-900">
-            {locations?.length ?? 0}
-          </p>
-          <p className="text-xs text-gray-500">Aktive Standorte</p>
-        </Card>
-        <Card title="Produkte">
-          <p className="text-2xl font-semibold text-gray-900">
-            {products?.length ?? 0}
-          </p>
-          <p className="text-xs text-gray-500">Im Katalog</p>
-        </Card>
-        <Card title="Sessions">
-          <p className="text-2xl font-semibold text-gray-900">
-            {sessions?.length ?? 0}
-          </p>
-          <p className="text-xs text-gray-500">Letzte Inventuren</p>
-        </Card>
-      </section>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
+        {/* Hero Card - Start Inventory */}
+        <Link 
+          to="/inventory" 
+          className="group col-span-2 row-span-2 relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/80 to-indigo-600 p-6 text-white shadow-2xl transition-transform hover:scale-[1.02] active:scale-95"
+        >
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div className="rounded-2xl bg-white/20 p-3 w-fit backdrop-blur-md">
+              <Play className="h-8 w-8 fill-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Inventur starten</h2>
+              <p className="mt-1 text-indigo-100 opacity-90">Neue Erfassung beginnen</p>
+            </div>
+          </div>
+          {/* Decorative Circle */}
+          <div className="absolute -bottom-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-3xl transition-transform group-hover:scale-150" />
+        </Link>
 
-      <Card title="Quick Actions">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link to="/inventory">
-            <Button>Neue Inventur starten</Button>
+        {/* Locations Stat */}
+        <Card className="col-span-1 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
+          <div className="flex items-start justify-between">
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
+              <MapPin className="h-5 w-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-foreground">{locations?.length ?? 0}</p>
+            <p className="text-xs font-medium text-muted-foreground">Standorte</p>
+          </div>
+        </Card>
+
+        {/* Products Stat */}
+        <Card className="col-span-1 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
+          <div className="flex items-start justify-between">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
+              <Package className="h-5 w-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-3xl font-bold text-foreground">{products?.length ?? 0}</p>
+            <p className="text-xs font-medium text-muted-foreground">Produkte</p>
+          </div>
+        </Card>
+
+        {/* Recent Activity / Sessions */}
+        <Card className="col-span-2 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="rounded-xl bg-blue-500/10 p-2 text-blue-500">
+              <History className="h-5 w-5" />
+            </div>
+            <span className="font-semibold">Letzte Aktivitäten</span>
+          </div>
+          
+          <div className="space-y-3">
+             {sessions && sessions.length > 0 ? (
+               sessions.slice(0, 2).map((session: any) => (
+                 <div key={session.id} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Session #{session.id.slice(0,4)}</span>
+                    <span className="font-medium text-emerald-500">Abgeschlossen</span>
+                 </div>
+               ))
+             ) : (
+               <p className="text-sm text-muted-foreground">Keine kürzlichen Aktivitäten.</p>
+             )}
+          </div>
+          
+          <Link to="/inventory/sessions" className="mt-4 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            Alle anzeigen <ArrowRight className="h-3 w-3" />
           </Link>
-          <Link to="/locations">
-            <Button variant="secondary">Locations verwalten</Button>
-          </Link>
-          <Link to="/invoices">
-            <Button variant="secondary">Rechnungen</Button>
-          </Link>
-        </div>
-      </Card>
+        </Card>
+      </div>
+
+      <h3 className="text-lg font-semibold px-1 pt-2">Schnellzugriff</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+         <Link to="/locations">
+            <Button variant="secondary" className="w-full justify-start h-auto py-3 px-4 bg-card hover:bg-accent border border-border">
+              <MapPin className="mr-2 h-4 w-4 text-emerald-500" />
+              Locations
+            </Button>
+         </Link>
+         <Link to="/invoices">
+            <Button variant="secondary" className="w-full justify-start h-auto py-3 px-4 bg-card hover:bg-accent border border-border">
+              <FileText className="mr-2 h-4 w-4 text-pink-500" />
+              Rechnungen
+            </Button>
+         </Link>
+      </div>
     </div>
   )
 }

@@ -10,10 +10,13 @@ export function Header() {
       : user?.email ?? 'User'
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
-        <Link to="/dashboard" className="text-base font-semibold text-gray-900">
-          CrewInventurKI
+    <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4 sm:max-w-2xl md:max-w-4xl">
+        <Link 
+          to="/dashboard" 
+          className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-lg font-bold tracking-tight text-transparent"
+        >
+          CrewChecker
         </Link>
         <Avatar name={displayName} size="sm" />
       </div>

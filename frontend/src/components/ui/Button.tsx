@@ -2,8 +2,8 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
 import { Loading } from './Loading'
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger'
-type ButtonSize = 'sm' | 'md' | 'lg'
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant
@@ -13,17 +13,22 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500',
+    'bg-primary text-primary-foreground shadow hover:bg-primary/90',
   secondary:
-    'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 focus-visible:ring-gray-400',
+    'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
+  outline:
+    'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
+  ghost: 
+    'hover:bg-accent hover:text-accent-foreground',
   danger:
-    'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
+    'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-2 text-sm',
-  md: 'px-4 py-2.5 text-sm',
-  lg: 'px-5 py-3 text-base',
+  sm: 'h-8 rounded-lg px-3 text-xs',
+  md: 'h-10 rounded-xl px-4 py-2',
+  lg: 'h-12 rounded-xl px-8',
+  icon: 'h-10 w-10 rounded-xl',
 }
 
 export function Button({
@@ -38,7 +43,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
         variantStyles[variant],
         sizeStyles[size],
         className,
@@ -47,7 +52,12 @@ export function Button({
       {...props}
     >
       {loading ? <Loading size="sm" /> : null}
-      <span className="inline-flex items-center gap-2">{children}</span>
+      {/* If loading and no children, just show spinner. If loading and children, show both? Usually just spinner or spinner + text. 
+          For now keeping it simple: spinner pushes text slightly if flex gap exists, or we wrap children. */}
+      <span className={cn("inline-flex items-center gap-2", loading && "opacity-0 absolute")}>
+        {children}
+      </span>
+      {loading && <span className="sr-only">Loading...</span>}
     </button>
   )
 }

@@ -27,6 +27,25 @@ export type InventoryItem = {
   notes?: string | null
 }
 
+export type InventoryBundle = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string | null
+  completed_at: string | null
+  total_sessions: number
+  total_items: number
+  total_value: number
+}
+
+export type BundleSession = {
+  session_id: string
+  location_name: string
+  completed_at: string | null
+  total_items: number
+  total_value: number
+}
+
 type SessionInput = {
   location_id: string
   name?: string | null
@@ -42,6 +61,11 @@ type ItemUpdate = {
   quantity?: number
   unit_price?: number
   notes?: string | null
+}
+
+type BundleInput = {
+  name: string
+  session_ids: string[]
 }
 
 export function useInventorySessions() {
@@ -192,6 +216,85 @@ export function useDeleteSessionItem(itemId: string, sessionId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', 'items', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['inventory', 'sessions', sessionId] })
+    },
+  })
+}
+
+export function useInventoryBundles() {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['inventory', 'bundles'],
+    queryFn: () =>
+      apiRequest<InventoryBundle[]>(
+        '/api/v1/inventory/bundles',
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token),
+  })
+}
+
+export function useInventoryBundle(bundleId?: string) {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['inventory', 'bundles', bundleId],
+    queryFn: () =>
+      apiRequest<InventoryBundle>(
+        `/api/v1/inventory/bundles/${bundleId}`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && bundleId),
+  })
+}
+
+export function useInventoryBundleSessions(bundleId?: string) {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['inventory', 'bundles', bundleId, 'sessions'],
+    queryFn: () =>
+      apiRequest<BundleSession[]>(
+        `/api/v1/inventory/bundles/${bundleId}/sessions`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && bundleId),
+  })
+}
+
+export function useCreateInventoryBundle() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: (payload: BundleInput) =>
+      apiRequest<InventoryBundle>(
+        '/api/v1/inventory/bundles',
+        { method: 'POST', body: JSON.stringify(payload) },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'bundles'] })
+    },
+  })
+}
+
+export function useDeleteInventoryBundle() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: (bundleId: string) =>
+      apiRequest<{ message: string }>(
+        `/api/v1/inventory/bundles/${bundleId}`,
+        { method: 'DELETE' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'bundles'] })
     },
   })
 }

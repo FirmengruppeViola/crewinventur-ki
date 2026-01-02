@@ -3,38 +3,47 @@ import { Home, MapPin, Package, Settings } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
-  { label: 'Dashboard', to: '/dashboard', icon: Home },
-  { label: 'Locations', to: '/locations', icon: MapPin },
-  { label: 'Products', to: '/products', icon: Package },
-  { label: 'Settings', to: '/settings', icon: Settings },
+  { label: 'Home', to: '/dashboard', icon: Home },
+  { label: 'Orte', to: '/locations', icon: MapPin },
+  { label: 'Inventur', to: '/inventory', icon: Package }, // Changed structure slightly to focus on core tasks
+  { label: 'Profil', to: '/settings', icon: Settings },
 ]
 
 export function BottomNav() {
   const location = useLocation()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-around px-2 py-2">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 pt-4 px-4">
+      <nav className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/80 p-2 shadow-2xl backdrop-blur-xl supports-[backdrop-filter]:bg-zinc-900/60">
         {navItems.map((item) => {
           const isActive =
             location.pathname === item.to ||
-            location.pathname.startsWith(`${item.to}/`)
+            (item.to !== '/dashboard' && location.pathname.startsWith(`${item.to}/`))
 
           return (
             <Link
               key={item.to}
               to={item.to}
               className={cn(
-                'flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium',
-                isActive ? 'text-blue-600' : 'text-gray-500',
+                'group relative flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-2 py-2 transition-all hover:bg-white/5',
+                isActive ? 'text-primary' : 'text-zinc-400 hover:text-zinc-100',
               )}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <item.icon
+                className={cn(
+                  'h-6 w-6 transition-transform group-active:scale-95',
+                  isActive && 'fill-primary/20',
+                )}
+              />
+              <span className="text-[10px] font-medium opacity-80">{item.label}</span>
+              
+              {isActive && (
+                <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-primary shadow-[0_0_8px_2px_rgba(99,102,241,0.5)]" />
+              )}
             </Link>
           )
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   )
 }

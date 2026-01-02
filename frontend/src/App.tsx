@@ -16,6 +16,8 @@ import { ProductScanPage } from './pages/products/ProductScanPage'
 import { InventoryPage } from './pages/inventory/InventoryPage'
 import { ActiveSessionPage } from './pages/inventory/ActiveSessionPage'
 import { SessionSummaryPage } from './pages/inventory/SessionSummaryPage'
+import { BundlesPage } from './pages/inventory/BundlesPage'
+import { BundleSummaryPage } from './pages/inventory/BundleSummaryPage'
 import { InvoicesPage } from './pages/invoices/InvoicesPage'
 import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage'
 import { InvoiceMatchingPage } from './pages/invoices/InvoiceMatchingPage'
@@ -50,6 +52,8 @@ function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/profile" element={<ProfilePage />} />
               <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/inventory/bundles" element={<BundlesPage />} />
+              <Route path="/inventory/bundles/:id" element={<BundleSummaryPage />} />
               <Route path="/inventory/sessions/:id" element={<ActiveSessionPage />} />
               <Route
                 path="/inventory/sessions/:id/summary"

@@ -275,6 +275,44 @@ CREATE POLICY "Users can manage own inventory items" ON public.inventory_items
 CREATE INDEX idx_session_items_session ON public.inventory_items(session_id);
 
 -- =====================================================
+-- INVENTORY_BUNDLES
+-- =====================================================
+CREATE TABLE public.inventory_bundles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(200) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    completed_at TIMESTAMPTZ,
+    total_sessions INT DEFAULT 0,
+    total_items INT DEFAULT 0,
+    total_value DECIMAL(12,2) DEFAULT 0
+);
+
+CREATE TABLE public.inventory_bundle_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bundle_id UUID NOT NULL REFERENCES public.inventory_bundles(id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES public.inventory_sessions(id),
+    UNIQUE(bundle_id, session_id)
+);
+
+ALTER TABLE public.inventory_bundles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_bundle_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own bundles" ON public.inventory_bundles
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own bundle sessions" ON public.inventory_bundle_sessions
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.inventory_bundles b
+            WHERE b.id = bundle_id AND b.user_id = auth.uid()
+        )
+    );
+
+CREATE INDEX idx_bundles_user ON public.inventory_bundles(user_id);
+CREATE INDEX idx_bundle_sessions_bundle ON public.inventory_bundle_sessions(bundle_id);
+
+-- =====================================================
 -- FUNCTIONS
 -- =====================================================
 

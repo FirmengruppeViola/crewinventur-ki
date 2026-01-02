@@ -4,9 +4,9 @@ import { Header } from './Header'
 
 export function AppShell() {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-background text-foreground font-sans antialiased">
       <Header />
-      <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-4">
+      <main className="mx-auto w-full max-w-md pb-32 pt-6 px-4 sm:max-w-2xl md:max-w-4xl">
         <Outlet />
       </main>
       <BottomNav />
