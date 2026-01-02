@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
 
+    # Cloudflare R2 Storage (S3-compatible)
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET_NAME: str = "crewinventurki-uploads"
+    R2_PUBLIC_URL: str | None = None
+    STORAGE_PROVIDER: str = "local"  # "local" or "r2"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

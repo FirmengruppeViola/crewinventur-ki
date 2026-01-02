@@ -5,6 +5,7 @@ from app.api.deps import get_current_user
 from app.core.supabase import get_supabase
 from app.schemas.invoice import InvoiceItemOut, InvoiceOut
 from app.services.invoice_extraction import extract_invoice
+from app.services.storage_service import get_storage_service
 
 router = APIRouter()
 
@@ -107,21 +108,37 @@ def list_invoices(current_user=Depends(get_current_user)):
 @router.post("/invoices/upload", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
 async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user)):
     supabase = get_supabase()
-    file_bytes = await file.read()
-    file_path = f"{current_user.id}/{file.filename}"
+    storage = get_storage_service()
 
-    supabase.storage.from_("invoices").upload(
-        file_path,
-        file_bytes,
-        file_options={"content-type": file.content_type, "upsert": True},
+    file_bytes = await file.read()
+
+    # Generate storage key with user isolation
+    storage_key = storage.generate_key(
+        user_id=current_user.id,
+        category="invoices",
+        filename=file.filename,
+        include_date=True
     )
+
+    # Upload to R2/local storage
+    try:
+        file_url = await storage.upload(
+            file_bytes,
+            storage_key,
+            file.content_type
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"File upload failed: {str(e)}"
+        )
 
     invoice_resp = (
         supabase.table("invoices")
         .insert(
             {
                 "user_id": current_user.id,
-                "file_url": file_path,
+                "file_url": storage_key,  # Store key, not URL
                 "file_name": file.filename,
                 "file_size": len(file_bytes),
                 "status": "pending",
@@ -131,6 +148,8 @@ async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user
     )
     invoice = invoice_resp.data[0] if invoice_resp.data else None
     if invoice is None:
+        # Cleanup uploaded file on DB error
+        await storage.delete(storage_key)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Invoice creation failed",
@@ -172,8 +191,10 @@ def get_invoice(invoice_id: str, current_user=Depends(get_current_user)):
 
 
 @router.post("/invoices/{invoice_id}/process", response_model=InvoiceOut)
-def process_invoice(invoice_id: str, current_user=Depends(get_current_user)):
+async def process_invoice(invoice_id: str, current_user=Depends(get_current_user)):
     supabase = get_supabase()
+    storage = get_storage_service()
+
     invoice_resp = (
         supabase.table("invoices")
         .select("*")
@@ -188,8 +209,15 @@ def process_invoice(invoice_id: str, current_user=Depends(get_current_user)):
             detail="Invoice not found",
         )
 
-    file_path = invoice["file_url"]
-    file_bytes = supabase.storage.from_("invoices").download(file_path)
+    storage_key = invoice["file_url"]
+    try:
+        file_bytes = await storage.download(storage_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to download file: {str(e)}"
+        )
+
     _process_invoice(supabase, invoice, file_bytes=file_bytes, mime_type="application/pdf")
 
     refreshed = (
