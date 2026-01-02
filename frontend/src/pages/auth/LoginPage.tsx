@@ -42,49 +42,62 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-12">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 relative overflow-hidden">
+       {/* Background Decoration */}
+       <div className="absolute top-[-10%] right-[-5%] h-[400px] w-[400px] rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
+       
+      <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Willkommen zurueck</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+            CrewChecker
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground">Willkommen zurück</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Melde dich mit deinen Zugangsdaten an.
           </p>
         </header>
 
-        <Card>
-          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <Card className="border-white/5 bg-card/50 backdrop-blur-sm shadow-xl">
+          <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
             <Input
               label="Email"
               type="email"
               placeholder="name@firma.de"
               error={errors.email?.message}
               {...register('email')}
+              className="bg-background/50"
             />
-            <Input
-              label="Passwort"
-              type="password"
-              placeholder="********"
-              error={errors.password?.message}
-              {...register('password')}
-            />
+            <div className="space-y-1.5">
+               <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground">Passwort</label>
+                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                    Vergessen?
+                  </Link>
+               </div>
+               <Input
+                type="password"
+                placeholder="********"
+                error={errors.password?.message}
+                {...register('password')}
+                className="bg-background/50"
+              />
+            </div>
 
             {formError ? (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
                 {formError}
-              </p>
+              </div>
             ) : null}
 
-            <Button type="submit" loading={isSubmitting} className="w-full">
+            <Button type="submit" loading={isSubmitting} className="w-full h-11 text-base shadow-lg shadow-primary/20">
               Einloggen
             </Button>
           </form>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-            <Link to="/forgot-password" className="text-blue-600 hover:underline">
-              Passwort vergessen?
-            </Link>
-            <Link to="/register" className="text-blue-600 hover:underline">
-              Noch kein Konto?
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            Noch kein Konto?{' '}
+            <Link to="/register" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
+              Jetzt registrieren
             </Link>
           </div>
         </Card>

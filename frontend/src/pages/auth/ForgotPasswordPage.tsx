@@ -38,47 +38,52 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-12">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-md flex flex-col gap-8">
         <header className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Passwort zuruecksetzen
+          <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+            CrewChecker
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground">
+            Passwort zurücksetzen
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Wir senden dir einen Link zum Zuruecksetzen.
+          <p className="mt-2 text-sm text-muted-foreground">
+            Keine Panik. Wir senden dir einen Link.
           </p>
         </header>
 
-        <Card>
+        <Card className="border-white/5 bg-card/50 backdrop-blur-sm shadow-xl">
           {success ? (
-            <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-              Checke dein Postfach fuer den Reset-Link.
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-4 text-sm text-emerald-500 text-center">
+              <p>Email gesendet!</p>
+              <p className="mt-1">Checke dein Postfach für den Reset-Link.</p>
             </div>
-          ) : null}
+          ) : (
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+              <Input
+                label="Email"
+                type="email"
+                placeholder="name@firma.de"
+                error={errors.email?.message}
+                {...register('email')}
+                className="bg-background/50"
+              />
 
-          <form className="mt-4 space-y-4" onSubmit={handleSubmit(onSubmit)}>
-            <Input
-              label="Email"
-              type="email"
-              placeholder="name@firma.de"
-              error={errors.email?.message}
-              {...register('email')}
-            />
+              {formError ? (
+                <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+                  {formError}
+                </div>
+              ) : null}
 
-            {formError ? (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                {formError}
-              </p>
-            ) : null}
+              <Button type="submit" loading={isSubmitting} className="w-full h-11 text-base shadow-lg shadow-primary/20">
+                Link senden
+              </Button>
+            </form>
+          )}
 
-            <Button type="submit" loading={isSubmitting} className="w-full">
-              Link senden
-            </Button>
-          </form>
-
-          <div className="mt-4 text-center text-sm text-gray-600">
-            <Link to="/login" className="text-blue-600 hover:underline">
-              Zurueck zum Login
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            <Link to="/login" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
+              Zurück zum Login
             </Link>
           </div>
         </Card>
