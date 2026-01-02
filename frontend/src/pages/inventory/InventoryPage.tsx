@@ -178,7 +178,7 @@ export function InventoryPage() {
         </div>
         
         {completedSessions.length > 0 ? (
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {completedSessions.map((session) => (
                <Card 
                  key={session.id} 
