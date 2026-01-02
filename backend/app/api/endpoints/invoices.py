@@ -262,6 +262,20 @@ def match_invoice_item(
         .execute()
     )
 
+    # Verify product belongs to current user (prevent IDOR)
+    product_check = (
+        supabase.table("products")
+        .select("id")
+        .eq("id", product_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not product_check.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
     invoice_resp = (
         supabase.table("invoices")
         .select("supplier_name, invoice_date")
@@ -277,6 +291,6 @@ def match_invoice_item(
             "last_price_date": invoice_data.get("invoice_date")
             or datetime.now(timezone.utc).date().isoformat(),
         }
-    ).eq("id", product_id).execute()
+    ).eq("id", product_id).eq("user_id", current_user.id).execute()
 
     return updated.data[0] if updated.data else item
