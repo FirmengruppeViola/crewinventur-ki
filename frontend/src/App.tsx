@@ -15,6 +15,8 @@ import { ProductFormPage } from './pages/products/ProductFormPage'
 import { ProductScanPage } from './pages/products/ProductScanPage'
 import { InventoryPage } from './pages/inventory/InventoryPage'
 import { ActiveSessionPage } from './pages/inventory/ActiveSessionPage'
+import { InventoryScanPage } from './pages/inventory/InventoryScanPage'
+import { ShelfScanPage } from './pages/inventory/ShelfScanPage'
 import { SessionSummaryPage } from './pages/inventory/SessionSummaryPage'
 import { BundlesPage } from './pages/inventory/BundlesPage'
 import { BundleSummaryPage } from './pages/inventory/BundleSummaryPage'
@@ -55,6 +57,8 @@ function App() {
               <Route path="/inventory/bundles" element={<BundlesPage />} />
               <Route path="/inventory/bundles/:id" element={<BundleSummaryPage />} />
               <Route path="/inventory/sessions/:id" element={<ActiveSessionPage />} />
+              <Route path="/inventory/sessions/:id/scan" element={<InventoryScanPage />} />
+              <Route path="/inventory/sessions/:id/shelf-scan" element={<ShelfScanPage />} />
               <Route
                 path="/inventory/sessions/:id/summary"
                 element={<SessionSummaryPage />}

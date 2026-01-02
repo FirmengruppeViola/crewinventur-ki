@@ -5,6 +5,7 @@ from app.api.endpoints import (
     categories,
     export,
     inventory,
+    inventory_scan,
     invoices,
     locations,
     products,
@@ -19,6 +20,7 @@ api_router.include_router(categories.router, tags=["categories"])
 api_router.include_router(products.router, tags=["products"])
 api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(inventory.router, tags=["inventory"])
+api_router.include_router(inventory_scan.router, tags=["inventory-scan"])
 api_router.include_router(invoices.router, tags=["invoices"])
 api_router.include_router(export.router, tags=["export"])
 api_router.include_router(bundles.router, tags=["bundles"])

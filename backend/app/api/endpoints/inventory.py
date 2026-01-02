@@ -253,6 +253,12 @@ def add_session_item(
     payload: InventoryItemCreate,
     current_user=Depends(get_current_user),
 ):
+    """
+    Add item to inventory session with support for:
+    - Full + Partial quantity (Anbruch): full_quantity + partial_quantity
+    - Legacy quantity field (backwards compatible)
+    - Duplicate handling via merge_mode: 'add', 'replace', or 'new_entry'
+    """
     supabase = get_supabase()
     session = (
         supabase.table("inventory_sessions")
@@ -267,6 +273,25 @@ def add_session_item(
             detail="Session not found",
         )
 
+    # Resolve quantity: new format (full+partial) or legacy (quantity)
+    if payload.full_quantity is not None:
+        full_qty = payload.full_quantity
+        partial_qty = payload.partial_quantity or 0
+        partial_pct = payload.partial_fill_percent or 0
+    elif payload.quantity is not None:
+        # Legacy: treat quantity as full_quantity
+        full_qty = payload.quantity
+        partial_qty = 0
+        partial_pct = 0
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either full_quantity or quantity must be provided",
+        )
+
+    total_qty = full_qty + partial_qty
+
+    # Get unit_price from product if not provided
     unit_price = payload.unit_price
     if unit_price is None:
         product = (
@@ -278,38 +303,89 @@ def add_session_item(
         )
         unit_price = product.data[0]["last_price"] if product.data else 0
 
+    # Check for existing item in session (duplicate handling)
     existing = (
         supabase.table("inventory_items")
-        .select("id, quantity")
+        .select("id, full_quantity, partial_quantity, quantity")
         .eq("session_id", session_id)
         .eq("product_id", payload.product_id)
         .execute()
     )
+
     if existing.data:
         existing_item = existing.data[0]
-        new_qty = float(existing_item["quantity"]) + float(payload.quantity)
-        update_resp = (
-            supabase.table("inventory_items")
-            .update({"quantity": new_qty, "unit_price": unit_price})
-            .eq("id", existing_item["id"])
-            .execute()
-        )
-        _recalculate_totals(supabase, session_id)
-        return update_resp.data[0]
+        merge_mode = payload.merge_mode or "add"  # Default: add to existing
 
+        if merge_mode == "add":
+            # Add quantities together
+            existing_full = float(existing_item.get("full_quantity") or existing_item.get("quantity") or 0)
+            existing_partial = float(existing_item.get("partial_quantity") or 0)
+            new_full = existing_full + full_qty
+            new_partial = existing_partial + partial_qty
+            # Handle overflow: if partial >= 1, move to full
+            if new_partial >= 1:
+                new_full += int(new_partial)
+                new_partial = new_partial - int(new_partial)
+
+            update_resp = (
+                supabase.table("inventory_items")
+                .update({
+                    "full_quantity": new_full,
+                    "partial_quantity": new_partial,
+                    "partial_fill_percent": partial_pct,
+                    "quantity": new_full + new_partial,
+                    "unit_price": unit_price,
+                })
+                .eq("id", existing_item["id"])
+                .execute()
+            )
+            _recalculate_totals(supabase, session_id)
+            return update_resp.data[0]
+
+        elif merge_mode == "replace":
+            # Replace existing with new values
+            update_resp = (
+                supabase.table("inventory_items")
+                .update({
+                    "full_quantity": full_qty,
+                    "partial_quantity": partial_qty,
+                    "partial_fill_percent": partial_pct,
+                    "quantity": total_qty,
+                    "unit_price": unit_price,
+                    "notes": payload.notes,
+                    "scan_method": payload.scan_method or "manual",
+                    "ai_confidence": payload.ai_confidence,
+                })
+                .eq("id", existing_item["id"])
+                .execute()
+            )
+            _recalculate_totals(supabase, session_id)
+            return update_resp.data[0]
+
+        # merge_mode == "new_entry": Fall through to create new
+        # Note: This will fail due to UNIQUE constraint unless we remove it
+        # For now, we return an error for this case
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Product already in session. Use merge_mode='add' or 'replace'",
+        )
+
+    # Create new item
     response = (
         supabase.table("inventory_items")
-        .insert(
-            {
-                "session_id": session_id,
-                "product_id": payload.product_id,
-                "quantity": payload.quantity,
-                "unit_price": unit_price,
-                "notes": payload.notes,
-                "scan_method": payload.scan_method or "manual",
-                "ai_confidence": payload.ai_confidence,
-            }
-        )
+        .insert({
+            "session_id": session_id,
+            "product_id": payload.product_id,
+            "full_quantity": full_qty,
+            "partial_quantity": partial_qty,
+            "partial_fill_percent": partial_pct,
+            "quantity": total_qty,
+            "unit_price": unit_price,
+            "notes": payload.notes,
+            "scan_method": payload.scan_method or "manual",
+            "ai_confidence": payload.ai_confidence,
+            "ai_suggested_quantity": payload.ai_suggested_quantity,
+        })
         .execute()
     )
     data = response.data[0] if response.data else None

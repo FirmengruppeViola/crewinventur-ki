@@ -246,16 +246,25 @@ CREATE TABLE public.inventory_items (
     session_id UUID NOT NULL REFERENCES public.inventory_sessions(id) ON DELETE CASCADE,
     product_id UUID NOT NULL REFERENCES public.products(id),
 
-    quantity DECIMAL(10,3) NOT NULL,
+    -- Quantity with partial (Anbruch) support
+    -- Example: 4 full bottles + 1 at 50% = full_quantity=4, partial_quantity=0.5
+    full_quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
+    partial_quantity DECIMAL(5,3) DEFAULT 0,  -- 0.0 to 0.999
+    partial_fill_percent INTEGER DEFAULT 0,   -- 0 to 100 (for UI display)
+
+    -- Computed total quantity (full + partial)
+    quantity DECIMAL(10,3) NOT NULL GENERATED ALWAYS AS (full_quantity + COALESCE(partial_quantity, 0)) STORED,
+
     unit_price DECIMAL(10,2) NOT NULL,
-    total_price DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    total_price DECIMAL(12,2) GENERATED ALWAYS AS ((full_quantity + COALESCE(partial_quantity, 0)) * unit_price) STORED,
 
     previous_quantity DECIMAL(10,3),
     quantity_difference DECIMAL(10,3),
 
     scanned_at TIMESTAMPTZ DEFAULT NOW(),
-    scan_method TEXT DEFAULT 'photo',
+    scan_method TEXT DEFAULT 'photo',  -- 'photo', 'shelf', 'barcode', 'manual'
     ai_confidence DECIMAL(3,2),
+    ai_suggested_quantity INTEGER,     -- KI-Mengenvorschlag aus Regal-Scan
 
     notes TEXT,
 
