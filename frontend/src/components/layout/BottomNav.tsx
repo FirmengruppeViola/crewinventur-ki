@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, MapPin, Package, Settings } from 'lucide-react'
+import { Home, MapPin, Package, FileText, Settings } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
   { label: 'Home', to: '/dashboard', icon: Home },
   { label: 'Orte', to: '/locations', icon: MapPin },
-  { label: 'Inventur', to: '/inventory', icon: Package }, // Changed structure slightly to focus on core tasks
+  { label: 'Inventur', to: '/inventory', icon: Package },
+  { label: 'Preise', to: '/invoices', icon: FileText },
   { label: 'Profil', to: '/settings', icon: Settings },
 ]
 

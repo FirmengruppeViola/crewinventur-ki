@@ -1,22 +1,45 @@
-import { useRef, type ChangeEvent, useState } from 'react'
+import { useRef, type ChangeEvent, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Loading } from '../../components/ui/Loading'
 import { BottomSheet } from '../../components/ui/BottomSheet'
+import { InvoiceOnboarding } from '../../components/ui/InvoiceOnboarding'
 import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
+
+const ONBOARDING_KEY = 'crewinventur-invoice-onboarding-seen'
 
 export function InvoicesPage() {
   const fileRef = useRef<HTMLInputElement | null>(null)
   const addToast = useUiStore((state) => state.addToast)
   const { data: invoices, isLoading } = useInvoices()
   const uploadInvoice = useUploadInvoice()
-  
+
+  // Onboarding State
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
   // Sheet State
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
+
+  // Show onboarding on first visit
+  useEffect(() => {
+    const seen = localStorage.getItem(ONBOARDING_KEY)
+    if (!seen) {
+      setShowOnboarding(true)
+    }
+  }, [])
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem(ONBOARDING_KEY, 'true')
+    setShowOnboarding(false)
+  }
+
+  const handleShowOnboarding = () => {
+    setShowOnboarding(true)
+  }
 
   const handlePickFile = () => {
     fileRef.current?.click()
@@ -43,16 +66,34 @@ export function InvoicesPage() {
   }
 
   return (
-    <div className="space-y-6 pb-40">
-      <header className="px-1 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Rechnungen</h1>
-          <p className="text-sm text-muted-foreground">Digitale Erfassung und Matching.</p>
-        </div>
-        <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={handlePickFile} loading={uploadInvoice.isPending}>
-          <Upload className="h-6 w-6" />
-        </Button>
-      </header>
+    <>
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <InvoiceOnboarding
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingComplete}
+        />
+      )}
+
+      <div className="space-y-6 pb-40">
+        <header className="px-1 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Preise & Rechnungen</h1>
+            <p className="text-sm text-muted-foreground">KI-gestützte Preiserfassung</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleShowOnboarding}
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              title="Anleitung anzeigen"
+            >
+              <HelpCircle className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={handlePickFile} loading={uploadInvoice.isPending}>
+              <Upload className="h-6 w-6" />
+            </Button>
+          </div>
+        </header>
 
       {invoices && invoices.length > 0 ? (
         <div className="grid gap-4">
@@ -111,13 +152,14 @@ export function InvoicesPage() {
         onChange={handleFileChange}
       />
 
-      {/* Detail Sheet */}
-      <InvoiceDetailSheet 
-        invoice={selectedInvoice} 
-        isOpen={!!selectedInvoice} 
-        onClose={() => setSelectedInvoice(null)} 
-      />
-    </div>
+        {/* Detail Sheet */}
+        <InvoiceDetailSheet
+          invoice={selectedInvoice}
+          isOpen={!!selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+        />
+      </div>
+    </>
   )
 }
 

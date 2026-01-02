@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, MapPin, Package, Play, History, FileText } from 'lucide-react'
-import { Button } from '../../components/ui/Button'
+import { ArrowRight, MapPin, Package, Play, History } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useLocations } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
@@ -39,31 +38,36 @@ export function DashboardPage() {
           <div className="absolute -bottom-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-3xl transition-transform group-hover:scale-150" />
         </Link>
 
-        {/* Locations Stat */}
-        <Card className="col-span-1 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
-          <div className="flex items-start justify-between">
-            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
-              <MapPin className="h-5 w-5" />
+        {/* Locations Stat - Clickable */}
+        <Link to="/locations" className="col-span-1">
+          <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
+            <div className="flex items-start justify-between">
+              <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-foreground">{locations?.length ?? 0}</p>
-            <p className="text-xs font-medium text-muted-foreground">Standorte</p>
-          </div>
-        </Card>
+            <div>
+              <p className="text-3xl font-bold text-foreground">{locations?.length ?? 0}</p>
+              <p className="text-xs font-medium text-muted-foreground">Standorte</p>
+            </div>
+          </Card>
+        </Link>
 
-        {/* Products Stat */}
-        <Card className="col-span-1 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
-          <div className="flex items-start justify-between">
-            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
-              <Package className="h-5 w-5" />
+        {/* Products Stat - Clickable */}
+        <Link to="/products" className="col-span-1">
+          <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
+            <div className="flex items-start justify-between">
+              <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
+                <Package className="h-5 w-5" />
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-foreground">{products?.length ?? 0}</p>
-            <p className="text-xs font-medium text-muted-foreground">Produkte</p>
-          </div>
-        </Card>
+            <div>
+              <p className="text-3xl font-bold text-foreground">{products?.length ?? 0}</p>
+              <p className="text-xs font-medium text-muted-foreground">Produkte</p>
+            </div>
+          </Card>
+        </Link>
 
         {/* Recent Activity / Sessions */}
         <Card className="col-span-2 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
@@ -93,21 +97,6 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <h3 className="text-lg font-semibold px-1 pt-2">Schnellzugriff</h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-         <Link to="/locations">
-            <Button variant="secondary" className="w-full justify-start h-auto py-3 px-4 bg-card hover:bg-accent border border-border">
-              <MapPin className="mr-2 h-4 w-4 text-emerald-500" />
-              Locations
-            </Button>
-         </Link>
-         <Link to="/invoices">
-            <Button variant="secondary" className="w-full justify-start h-auto py-3 px-4 bg-card hover:bg-accent border border-border">
-              <FileText className="mr-2 h-4 w-4 text-pink-500" />
-              Rechnungen
-            </Button>
-         </Link>
-      </div>
     </div>
   )
 }
