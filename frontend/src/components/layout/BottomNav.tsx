@@ -14,7 +14,7 @@ export function BottomNav() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 pt-4 px-4">
-      <nav className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/80 p-2 shadow-2xl backdrop-blur-xl supports-[backdrop-filter]:bg-zinc-900/60">
+      <nav className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/10 bg-card/80 p-2 shadow-2xl backdrop-blur-xl supports-[backdrop-filter]:bg-card/60">
         {navItems.map((item) => {
           const isActive =
             location.pathname === item.to ||
@@ -26,7 +26,7 @@ export function BottomNav() {
               to={item.to}
               className={cn(
                 'group relative flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-2 py-2 transition-all hover:bg-white/5',
-                isActive ? 'text-primary' : 'text-zinc-400 hover:text-zinc-100',
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <item.icon
@@ -38,7 +38,7 @@ export function BottomNav() {
               <span className="text-[10px] font-medium opacity-80">{item.label}</span>
               
               {isActive && (
-                <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-primary shadow-[0_0_8px_2px_rgba(99,102,241,0.5)]" />
+                <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-primary shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]" />
               )}
             </Link>
           )

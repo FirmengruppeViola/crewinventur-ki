@@ -4,34 +4,38 @@
  
 @layer base {
   :root {
-    /* Base - Zinc 950 based Dark Mode by Default for "CrewChecker" */
-    --background: 240 10% 3.9%;   /* Zinc 950 */
-    --foreground: 0 0% 98%;       /* Zinc 50 */
+    /* "Deep Slate" Theme - Softer, richer, professional */
+    
+    /* Background: Slate 950 (but slightly lifted) - A deep, rich navy-grey */
+    --background: 222 47% 11%;     /* Slate 900 */
+    --foreground: 213 27% 84%;     /* Slate 200 - Softer white for text */
  
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    /* Cards: Slate 800 - Lighter than bg to create depth without borders */
+    --card: 217 33% 17%;           /* Slate 800 */
+    --card-foreground: 213 27% 84%; /* Slate 200 */
  
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 213 27% 84%;
  
-    --primary: 262.1 83.3% 57.8%; /* Violet 600 - "Electric" */
-    --primary-foreground: 210 40% 98%;
+    /* Primary: "Interstellar Blue" - Strong but not neon */
+    --primary: 217 91% 60%;        /* Blue 500 */
+    --primary-foreground: 222 47% 11%; /* Dark text on bright button */
  
-    --secondary: 240 3.7% 15.9%;  /* Zinc 800 */
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 215 25% 27%;      /* Slate 700 - Visible separation */
+    --secondary-foreground: 210 40% 98%;
  
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 215 25% 27%;
+    --muted-foreground: 215 20% 65%; /* Slate 400 - Relaxed secondary text */
  
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 215 25% 27%;
+    --accent-foreground: 210 40% 98%;
  
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 210 40% 98%;
  
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --border: 217 33% 17%;         /* Blend with cards */
+    --input: 217 33% 17%;          /* Inputs merge with background/cards */
+    --ring: 224 76% 48%;           /* Focus ring matches primary but darker */
  
     --radius: 0.75rem;
   }
@@ -42,17 +46,17 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-white;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Glassmorphism Utility */
+/* Glassmorphism Utility - Updated for Slate Theme */
 @layer utilities {
   .glass {
-    @apply bg-background/60 backdrop-blur-xl border-t border-white/10;
+    @apply bg-slate-900/70 backdrop-blur-xl border-t border-white/10;
   }
   .glass-card {
-    @apply bg-zinc-900/50 backdrop-blur-md border border-white/5 shadow-xl;
+    @apply bg-slate-800/50 backdrop-blur-md border border-white/5 shadow-xl;
   }
 }
