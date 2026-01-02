@@ -5,9 +5,6 @@ import {
   Plus,
   User,
   MapPin,
-  Check,
-  Clock,
-  XCircle,
   MoreVertical,
   Copy,
   RefreshCw,
@@ -291,7 +288,7 @@ export function TeamPage() {
       {/* Members List */}
       {!members || members.length === 0 ? (
         <EmptyState
-          icon={User}
+          icon={<User className="h-6 w-6" />}
           title="Noch keine Betriebsleiter"
           description="Lade Betriebsleiter ein, damit sie Inventuren für deine Standorte durchführen können."
           action={
@@ -319,7 +316,7 @@ export function TeamPage() {
 
       {/* Invite Modal */}
       <Modal
-        open={showInviteModal}
+        isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         title="Betriebsleiter einladen"
       >
@@ -392,7 +389,7 @@ export function TeamPage() {
 
       {/* Code Modal */}
       <Modal
-        open={!!showCodeModal}
+        isOpen={!!showCodeModal}
         onClose={() => setShowCodeModal(null)}
         title="Einladungscode"
       >

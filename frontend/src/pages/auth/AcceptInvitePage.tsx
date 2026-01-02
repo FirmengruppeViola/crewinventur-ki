@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Ticket, ArrowRight } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Input } from '../../components/ui/Input'
 import { useAuth } from '../../features/auth/useAuth'
 import { useUiStore } from '../../stores/uiStore'
 
