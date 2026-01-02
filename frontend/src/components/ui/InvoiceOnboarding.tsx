@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import {
   Sparkles,
   Receipt,
@@ -91,7 +90,9 @@ export function InvoiceOnboarding({ onComplete }: InvoiceOnboardingProps) {
     }
   }
 
-  return createPortal(
+  // No portal needed - fixed positioning with high z-index is sufficient
+  // Portal was causing React DOM errors with TanStack Query updates
+  return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Solid background layer - prevents content bleeding through */}
       <div className="absolute inset-0 bg-background" />
@@ -202,7 +203,6 @@ export function InvoiceOnboarding({ onComplete }: InvoiceOnboardingProps) {
           </button>
         )}
       </div>
-    </div>,
-    document.body
+    </div>
   )
 }
