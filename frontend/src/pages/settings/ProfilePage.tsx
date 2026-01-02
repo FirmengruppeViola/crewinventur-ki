@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { Save, LogOut } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -104,28 +105,29 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-gray-900">Profil</h1>
-        <p className="text-sm text-gray-600">Verwalte deine Account-Daten.</p>
+      <header className="px-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Profil</h1>
+        <p className="text-sm text-muted-foreground">Verwalte deine Account-Daten.</p>
       </header>
 
       {loadError ? (
-        <Card>
-          <p className="text-sm text-red-600">{loadError}</p>
-        </Card>
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {loadError}
+        </div>
       ) : null}
 
-      <Card>
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      <Card className="p-5">
+        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
           <Input
             label="Email"
             value={profile?.email ?? ''}
             readOnly
             disabled
+            className="opacity-70"
           />
           <Input
             label="Display Name"
-            placeholder="Name"
+            placeholder="Dein Name"
             error={errors.displayName?.message}
             {...register('displayName')}
           />
@@ -135,24 +137,24 @@ export function ProfilePage() {
             error={errors.companyName?.message}
             {...register('companyName')}
           />
-          <Button type="submit" loading={isSubmitting}>
-            Speichern
-          </Button>
+          <div className="pt-2">
+            <Button type="submit" loading={isSubmitting} className="w-full sm:w-auto">
+              <Save className="mr-2 h-4 w-4" /> Speichern
+            </Button>
+          </div>
         </form>
       </Card>
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Session</p>
-            <p className="text-xs text-gray-500">
-              {session?.user?.email ?? 'Nicht eingeloggt'}
-            </p>
-          </div>
-          <Button variant="secondary" onClick={handleLogout}>
-            Logout
-          </Button>
+      <Card className="flex items-center justify-between p-5">
+        <div>
+          <p className="text-sm font-medium text-foreground">Aktuelle Session</p>
+          <p className="text-xs text-muted-foreground">
+            Eingeloggt als {session?.user?.email ?? 'Gast'}
+          </p>
         </div>
+        <Button variant="outline" size="sm" onClick={handleLogout}>
+          <LogOut className="mr-2 h-3.5 w-3.5" /> Logout
+        </Button>
       </Card>
     </div>
   )

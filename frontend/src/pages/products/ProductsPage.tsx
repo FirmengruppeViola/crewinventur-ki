@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Search, Filter, Package, ScanLine } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -37,54 +37,68 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-bold text-gray-900">Produkte</h1>
-        <p className="text-sm text-gray-600">
-          Suche, scanne oder lege neue Produkte an.
+    <div className="space-y-6 pb-20">
+      <header className="px-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Produkte</h1>
+        <p className="text-sm text-muted-foreground">
+          Katalog verwalten und durchsuchen.
         </p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          label="Suche"
-          name="productSearch"
-          placeholder="Produktname oder Marke"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <Select
-          label="Kategorie"
-          name="productCategory"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          options={categoryOptions}
-        />
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            name="productSearch"
+            placeholder="Produkt suchen..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="pl-9 bg-card/50"
+          />
+        </div>
+        <div className="relative">
+          <Filter className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+          <Select
+            name="productCategory"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            options={categoryOptions}
+            className="pl-9 bg-card/50"
+          />
+        </div>
       </div>
 
       {products && products.length > 0 ? (
         <div className="grid gap-3">
           {products.map((product) => (
             <Link key={product.id} to={`/products/${product.id}`}>
-              <Card title={product.name}>
-                <p className="text-sm text-gray-600">
-                  {[product.brand, product.size].filter(Boolean).join(' · ') || 'Ohne Details'}
-                </p>
+              <Card className="group flex items-center gap-4 p-4 transition-all hover:bg-accent/50 active:scale-[0.99]">
+                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Package className="h-5 w-5" />
+                 </div>
+                 <div className="flex-1 overflow-hidden">
+                    <h3 className="truncate font-medium text-foreground">{product.name}</h3>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[product.brand, product.size].filter(Boolean).join(' · ') || 'Keine Details'}
+                    </p>
+                 </div>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
         <EmptyState
-          title="Noch keine Produkte"
+          title="Keine Produkte"
           description="Starte mit einem Scan oder lege ein Produkt manuell an."
           action={
             <div className="flex gap-2">
               <Link to="/products/scan">
-                <Button>Scan</Button>
+                <Button>
+                   <ScanLine className="mr-2 h-4 w-4" /> Scan
+                </Button>
               </Link>
               <Link to="/products/new">
-                <Button variant="secondary">Manuell</Button>
+                <Button variant="outline">Manuell</Button>
               </Link>
             </div>
           }
@@ -94,20 +108,22 @@ export function ProductsPage() {
       <button
         type="button"
         onClick={() => setIsFabOpen(true)}
-        className="fixed bottom-24 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg"
+        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl hover:bg-primary/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         aria-label="Produkt hinzufuegen"
       >
-        <Plus className="h-5 w-5" />
+        <Plus className="h-6 w-6" />
       </button>
 
       <BottomSheet isOpen={isFabOpen} onClose={() => setIsFabOpen(false)}>
-        <div className="space-y-3">
+        <div className="space-y-3 pb-6">
           <Link to="/products/scan" onClick={() => setIsFabOpen(false)}>
-            <Button className="w-full">Mit Kamera scannen</Button>
+            <Button className="w-full h-12 text-lg">
+              <ScanLine className="mr-2 h-5 w-5" /> Mit Kamera scannen
+            </Button>
           </Link>
           <Link to="/products/new" onClick={() => setIsFabOpen(false)}>
-            <Button variant="secondary" className="w-full">
-              Manuell anlegen
+            <Button variant="secondary" className="w-full h-12 text-lg">
+              <Plus className="mr-2 h-5 w-5" /> Manuell anlegen
             </Button>
           </Link>
         </div>
