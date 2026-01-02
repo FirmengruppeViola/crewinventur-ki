@@ -111,7 +111,7 @@ export function InventoryPage() {
   }
 
   return (
-    <div className="space-y-8 pb-24">
+    <div className="space-y-8 pb-40">
       <header className="px-1 flex items-center justify-between">
         <div>
            <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventur</h1>

@@ -79,7 +79,7 @@ export function LocationsPage() {
   if (isLoading) return <Loading fullScreen />
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-40">
       <header className="px-1">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Locations</h1>
         <p className="text-sm text-muted-foreground">
