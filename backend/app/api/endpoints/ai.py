@@ -1,14 +1,21 @@
 import base64
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from pydantic import ValidationError
+
 from app.api.deps import get_current_user
+from app.core.gemini import GeminiError
 from app.core.supabase import get_supabase
 from app.services.product_recognition import recognize_product, recognize_multiple_products
 from app.services.invoice_extraction import extract_invoice
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _strip_data_prefix(value: str) -> str:
+    """Strip data URL prefix from base64 string."""
     if "," in value:
         return value.split(",", 1)[1]
     return value
@@ -20,6 +27,7 @@ async def recognize_product_endpoint(
     image: UploadFile | None = None,
     current_user=Depends(get_current_user),
 ):
+    """Recognize a single product from an image using AI."""
     supabase = get_supabase()
     image_base64: str | None = None
     save_if_new = False
@@ -52,7 +60,21 @@ async def recognize_product_endpoint(
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
-    recognition = recognize_product(image_base64, categories, mime_type=mime_type)
+    try:
+        recognition = recognize_product(image_base64, categories, mime_type=mime_type)
+    except GeminiError as e:
+        logger.error(f"AI recognition failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI service temporarily unavailable: {e}",
+        ) from e
+    except ValidationError as e:
+        logger.error(f"AI response validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI returned invalid response format",
+        ) from e
+
     existing_match = None
     is_new = True
 
@@ -119,6 +141,7 @@ async def recognize_multiple_endpoint(
     image: UploadFile | None = None,
     current_user=Depends(get_current_user),
 ):
+    """Recognize multiple products from an image (e.g., shelf scan)."""
     supabase = get_supabase()
     image_base64: str | None = None
 
@@ -147,7 +170,21 @@ async def recognize_multiple_endpoint(
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
-    products = recognize_multiple_products(image_base64, categories, mime_type=mime_type)
+    try:
+        products = recognize_multiple_products(image_base64, categories, mime_type=mime_type)
+    except GeminiError as e:
+        logger.error(f"AI multi-recognition failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI service temporarily unavailable: {e}",
+        ) from e
+    except ValidationError as e:
+        logger.error(f"AI response validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI returned invalid response format",
+        ) from e
+
     return {"products": [product.model_dump() for product in products]}
 
 
@@ -157,6 +194,7 @@ async def extract_invoice_endpoint(
     file: UploadFile | None = None,
     current_user=Depends(get_current_user),
 ):
+    """Extract invoice data from a PDF or image using AI."""
     file_base64: str | None = None
     mime_type = "application/pdf"
 
@@ -176,6 +214,20 @@ async def extract_invoice_endpoint(
         )
 
     file_base64 = _strip_data_prefix(file_base64)
-    extraction = extract_invoice(file_base64, mime_type=mime_type)
+
+    try:
+        extraction = extract_invoice(file_base64, mime_type=mime_type)
+    except GeminiError as e:
+        logger.error(f"AI invoice extraction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI service temporarily unavailable: {e}",
+        ) from e
+    except ValidationError as e:
+        logger.error(f"AI response validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI returned invalid response format",
+        ) from e
 
     return extraction.model_dump()
