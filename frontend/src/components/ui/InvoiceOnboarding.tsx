@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Sparkles,
   Receipt,
@@ -90,8 +91,13 @@ export function InvoiceOnboarding({ onComplete }: InvoiceOnboardingProps) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/98 backdrop-blur-xl">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {/* Solid background layer - prevents content bleeding through */}
+      <div className="absolute inset-0 bg-background" />
+      {/* Blur overlay on top */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-background to-slate-800/50 backdrop-blur-xl" />
+
       {/* Background Decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-slow" />
@@ -196,6 +202,7 @@ export function InvoiceOnboarding({ onComplete }: InvoiceOnboardingProps) {
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
