@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Search, Filter, Package, ScanLine } from 'lucide-react'
+import { Plus, Search, Filter, Package, ScanLine, Edit2, X, Barcode } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -8,19 +7,32 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { Loading } from '../../components/ui/Loading'
-import { useProducts } from '../../features/products/useProducts'
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../../features/products/useProducts'
 import { useCategories } from '../../features/products/useCategories'
+import { useUiStore } from '../../stores/uiStore'
 
 export function ProductsPage() {
   const [query, setQuery] = useState('')
   const [categoryId, setCategoryId] = useState('all')
-  const [isFabOpen, setIsFabOpen] = useState(false)
+  const addToast = useUiStore((state) => state.addToast)
+
+  // Sheet State
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
 
   const { data: categories } = useCategories()
   const { data: products, isLoading } = useProducts({
     query: query.trim() || undefined,
     categoryId: categoryId === 'all' ? undefined : categoryId,
   })
+
+  const createProduct = useCreateProduct()
+  const updateProduct = useUpdateProduct(selectedProductId ?? '')
+  const deleteProduct = useDeleteProduct(selectedProductId ?? '')
+
+  // Form Data
+  const [formData, setFormData] = useState({ name: '', brand: '', size: '', barcode: '' })
 
   const categoryOptions = useMemo(() => {
     const base = [{ label: 'Alle Kategorien', value: 'all' }]
@@ -32,25 +44,84 @@ export function ProductsPage() {
     return [...base, ...options]
   }, [categories])
 
-  if (isLoading) {
-    return <Loading fullScreen />
+  const selectedProduct = products?.find(p => p.id === selectedProductId)
+  const isSheetOpen = !!selectedProductId || isCreating
+
+  const handleOpenCreate = () => {
+    setFormData({ name: '', brand: '', size: '', barcode: '' })
+    setIsCreating(true)
+    setIsEditMode(true)
+    setSelectedProductId(null)
   }
 
+  const handleOpenDetail = (product: any) => {
+    setFormData({ 
+      name: product.name, 
+      brand: product.brand || '', 
+      size: product.size || '',
+      barcode: product.barcode || ''
+    })
+    setSelectedProductId(product.id)
+    setIsCreating(false)
+    setIsEditMode(false)
+  }
+
+  const handleSave = async () => {
+    try {
+      const payload = {
+        name: formData.name,
+        brand: formData.brand || null,
+        size: formData.size || null,
+        barcode: formData.barcode || null
+      }
+      
+      if (isCreating) {
+        await createProduct.mutateAsync(payload)
+        addToast('Produkt erstellt.', 'success')
+      } else if (selectedProductId) {
+        await updateProduct.mutateAsync(payload)
+        addToast('Produkt aktualisiert.', 'success')
+      }
+      handleClose()
+    } catch (err) {
+      addToast('Speichern fehlgeschlagen.', 'error')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedProductId) return
+    try {
+      await deleteProduct.mutateAsync()
+      addToast('Produkt gelöscht.', 'success')
+      handleClose()
+    } catch (err) {
+      addToast('Löschen fehlgeschlagen.', 'error')
+    }
+  }
+
+  const handleClose = () => {
+    setSelectedProductId(null)
+    setIsCreating(false)
+    setIsEditMode(false)
+  }
+
+  if (isLoading) return <Loading fullScreen />
+
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-24">
       <header className="px-1">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Produkte</h1>
         <p className="text-sm text-muted-foreground">
-          Katalog verwalten und durchsuchen.
+          Dein Katalog. Durchsuchbar und griffbereit.
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 sticky top-0 z-20 bg-background/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/50">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             name="productSearch"
-            placeholder="Produkt suchen..."
+            placeholder="Suchen..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-9 bg-card/50"
@@ -71,61 +142,147 @@ export function ProductsPage() {
       {products && products.length > 0 ? (
         <div className="grid gap-3">
           {products.map((product) => (
-            <Link key={product.id} to={`/products/${product.id}`}>
-              <Card className="group flex items-center gap-4 p-4 transition-all hover:bg-accent/50 active:scale-[0.99]">
-                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Package className="h-5 w-5" />
-                 </div>
-                 <div className="flex-1 overflow-hidden">
-                    <h3 className="truncate font-medium text-foreground">{product.name}</h3>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {[product.brand, product.size].filter(Boolean).join(' · ') || 'Keine Details'}
-                    </p>
-                 </div>
-              </Card>
-            </Link>
+            <Card 
+              key={product.id} 
+              onClick={() => handleOpenDetail(product)}
+              className="group flex cursor-pointer items-center gap-4 p-4 transition-all hover:bg-accent/50 active:scale-[0.99]"
+            >
+               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/5 text-indigo-400 transition-transform group-hover:scale-110">
+                  <Package className="h-6 w-6" />
+               </div>
+               <div className="flex-1 overflow-hidden">
+                  <h3 className="truncate font-medium text-foreground">{product.name}</h3>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    {product.brand && (
+                      <span className="rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground">{product.brand}</span>
+                    )}
+                    {product.size && (
+                      <span>{product.size}</span>
+                    )}
+                  </div>
+               </div>
+            </Card>
           ))}
         </div>
       ) : (
         <EmptyState
           title="Keine Produkte"
-          description="Starte mit einem Scan oder lege ein Produkt manuell an."
+          description="Leg los und fülle dein Regal."
           action={
-            <div className="flex gap-2">
-              <Link to="/products/scan">
-                <Button>
-                   <ScanLine className="mr-2 h-4 w-4" /> Scan
-                </Button>
-              </Link>
-              <Link to="/products/new">
-                <Button variant="outline">Manuell</Button>
-              </Link>
-            </div>
+            <Button onClick={handleOpenCreate}>
+               <Plus className="mr-2 h-4 w-4" /> Erstes Produkt
+            </Button>
           }
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsFabOpen(true)}
-        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl hover:bg-primary/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        aria-label="Produkt hinzufuegen"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+      {/* FAB Group */}
+      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-30">
+        <button
+           onClick={() => { /* Mock Scan Action */ addToast('Scanner startet... (Mock)', 'info') }}
+           className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg hover:bg-secondary/80 transition-all"
+           aria-label="Scan"
+        >
+          <ScanLine className="h-5 w-5" />
+        </button>
+        <button
+          onClick={handleOpenCreate}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(59,130,246,0.4)] hover:bg-primary/90 hover:scale-105 transition-all"
+          aria-label="Neues Produkt"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      </div>
 
-      <BottomSheet isOpen={isFabOpen} onClose={() => setIsFabOpen(false)}>
-        <div className="space-y-3 pb-6">
-          <Link to="/products/scan" onClick={() => setIsFabOpen(false)}>
-            <Button className="w-full h-12 text-lg">
-              <ScanLine className="mr-2 h-5 w-5" /> Mit Kamera scannen
-            </Button>
-          </Link>
-          <Link to="/products/new" onClick={() => setIsFabOpen(false)}>
-            <Button variant="secondary" className="w-full h-12 text-lg">
-              <Plus className="mr-2 h-5 w-5" /> Manuell anlegen
-            </Button>
-          </Link>
+      {/* Detail/Edit Sheet */}
+      <BottomSheet isOpen={isSheetOpen} onClose={handleClose}>
+        <div className="space-y-6 pb-6">
+          <header className="flex items-center justify-between border-b border-border pb-4">
+             <div>
+                <h2 className="text-xl font-bold text-foreground truncate max-w-[250px]">
+                  {isCreating ? 'Neues Produkt' : selectedProduct?.name}
+                </h2>
+                {!isCreating && !isEditMode && (
+                   <p className="text-xs text-muted-foreground flex items-center gap-1">
+                     <Barcode className="h-3 w-3" /> {selectedProduct?.barcode || 'Kein Barcode'}
+                   </p>
+                )}
+             </div>
+             {!isCreating && !isEditMode && (
+               <Button size="sm" variant="ghost" onClick={() => setIsEditMode(true)}>
+                 <Edit2 className="h-4 w-4" />
+               </Button>
+             )}
+              {isEditMode && !isCreating && (
+               <Button size="sm" variant="ghost" onClick={() => setIsEditMode(false)}>
+                 <X className="h-4 w-4" />
+               </Button>
+             )}
+          </header>
+
+          {isEditMode ? (
+            <div className="space-y-4 animate-fade-in">
+              <Input 
+                label="Name" 
+                value={formData.name} 
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                placeholder="z.B. Havana Club"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input 
+                  label="Marke" 
+                  value={formData.brand} 
+                  onChange={e => setFormData({...formData, brand: e.target.value})}
+                  placeholder="Havana"
+                />
+                <Input 
+                  label="Größe" 
+                  value={formData.size} 
+                  onChange={e => setFormData({...formData, size: e.target.value})}
+                  placeholder="0.7 l"
+                />
+              </div>
+              <Input 
+                  label="Barcode" 
+                  value={formData.barcode} 
+                  onChange={e => setFormData({...formData, barcode: e.target.value})}
+                  placeholder="Scannen oder tippen..."
+                />
+              
+              <div className="flex gap-3 pt-4">
+                <Button className="flex-1" onClick={handleSave}>Speichern</Button>
+                {!isCreating && (
+                   <Button variant="danger" className="flex-1" onClick={handleDelete}>Löschen</Button>
+                )}
+              </div>
+            </div>
+          ) : (
+             <div className="space-y-6 animate-fade-in">
+                {/* Product Stats / Info Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="rounded-xl bg-accent/50 p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Marke</p>
+                      <p className="font-semibold text-foreground">{selectedProduct?.brand || '-'}</p>
+                   </div>
+                   <div className="rounded-xl bg-accent/50 p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Größe</p>
+                      <p className="font-semibold text-foreground">{selectedProduct?.size || '-'}</p>
+                   </div>
+                </div>
+
+                {/* AI / Confidence Placeholder */}
+                {selectedProduct?.ai_confidence && (
+                  <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-4 flex items-center justify-between">
+                     <span className="text-sm text-indigo-300">KI Erkennung</span>
+                     <span className="text-sm font-bold text-indigo-400">{(selectedProduct.ai_confidence * 100).toFixed(0)}%</span>
+                  </div>
+                )}
+
+                <Button className="w-full h-12" onClick={() => setIsEditMode(true)}>
+                  Bearbeiten
+                </Button>
+             </div>
+          )}
         </div>
       </BottomSheet>
     </div>
