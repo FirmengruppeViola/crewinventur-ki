@@ -14,13 +14,18 @@ class ProductRecognitionResponse(BaseModel):
 
 
 class InvoiceItem(BaseModel):
-    description: str
+    description: str  # Original text from invoice (e.g., "Jägerm. 0.7 Kräuterl.")
     quantity: int
     unit: str
     unit_price_net: float
     unit_price_gross: float
     vat_rate: float
     total_gross: float
+    # AI-normalized fields for better matching
+    normalized_name: str | None = None  # Clean product name (e.g., "Jägermeister 0,7l")
+    normalized_brand: str | None = None  # Brand if detectable
+    normalized_size: str | None = None  # Size/volume (e.g., "0,7l", "1L")
+    normalized_category: str | None = None  # Category (e.g., "Spirituosen", "Softdrinks")
 
 
 class InvoiceTotals(BaseModel):

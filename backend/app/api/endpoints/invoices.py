@@ -6,6 +6,7 @@ from app.core.supabase import get_supabase
 from app.schemas.invoice import InvoiceItemOut, InvoiceOut
 from app.services.invoice_extraction import extract_invoice
 from app.services.storage_service import get_storage_service
+from app.services.product_matcher import match_products_for_user, match_products_for_invoice
 
 router = APIRouter()
 
@@ -17,27 +18,63 @@ def _now_iso():
 def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
     items = []
     for item in extraction.items:
-        product_name = item.description
+        raw_text = item.description
+        # Use AI-normalized name for matching, fallback to raw text
+        normalized_name = item.normalized_name or raw_text
         unit_price = item.unit_price_gross or item.unit_price_net
         total_price = item.total_gross
 
-        matched = (
-            supabase.table("products")
-            .select("id")
-            .eq("user_id", user_id)
-            .ilike("name", f"%{product_name}%")
-            .limit(1)
-            .execute()
-        )
+        # Try matching with normalized name first (better quality)
+        matched = None
+        match_confidence = None
+
+        if normalized_name:
+            # Try exact-ish match on normalized name
+            matched = (
+                supabase.table("products")
+                .select("id")
+                .eq("user_id", user_id)
+                .ilike("name", f"%{normalized_name.split()[0]}%")  # First word
+                .limit(5)
+                .execute()
+            )
+            # If we have normalized brand, filter further
+            if matched.data and item.normalized_brand:
+                for product in matched.data:
+                    brand_match = (
+                        supabase.table("products")
+                        .select("id")
+                        .eq("id", product["id"])
+                        .ilike("brand", f"%{item.normalized_brand}%")
+                        .execute()
+                    )
+                    if brand_match.data:
+                        matched.data = [brand_match.data[0]]
+                        match_confidence = 0.9
+                        break
+
+        # Fallback to simple matching if nothing found
+        if not matched or not matched.data:
+            matched = (
+                supabase.table("products")
+                .select("id")
+                .eq("user_id", user_id)
+                .ilike("name", f"%{raw_text}%")
+                .limit(1)
+                .execute()
+            )
+            match_confidence = 0.7 if matched.data else None
+
         matched_product_id = matched.data[0]["id"] if matched.data else None
-        match_confidence = 0.8 if matched_product_id else None
+        if matched_product_id and not match_confidence:
+            match_confidence = 0.8
 
         items.append(
             {
                 "invoice_id": invoice_id,
                 "user_id": user_id,
-                "raw_text": product_name,
-                "product_name": product_name,
+                "raw_text": raw_text,
+                "product_name": normalized_name,  # Use normalized as display name
                 "quantity": item.quantity,
                 "unit": item.unit,
                 "unit_price": unit_price,
@@ -45,6 +82,11 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
                 "matched_product_id": matched_product_id,
                 "match_confidence": match_confidence,
                 "is_manually_matched": False,
+                # New AI-normalized fields
+                "ai_normalized_name": item.normalized_name,
+                "ai_brand": item.normalized_brand,
+                "ai_size": item.normalized_size,
+                "ai_category": item.normalized_category,
             }
         )
 
@@ -457,3 +499,48 @@ def get_unmatched_count(
     )
 
     return {"unmatched_count": len(items_resp.data or [])}
+
+
+@router.post("/invoices/smart-match-all")
+def smart_match_all_invoices(current_user=Depends(get_current_user)):
+    """
+    Use AI to match ALL unmatched invoice items to products.
+
+    This endpoint:
+    1. Gets all products for the user
+    2. Gets all unmatched invoice items
+    3. Uses Gemini to intelligently match them
+    4. Updates matches in database
+
+    Use this after uploading multiple invoices to bulk-match.
+    """
+    result = match_products_for_user(current_user.id)
+
+    if "error" in result:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["error"],
+        )
+
+    return result
+
+
+@router.post("/invoices/{invoice_id}/smart-match")
+def smart_match_invoice(
+    invoice_id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Use AI to match unmatched items for a specific invoice.
+
+    More efficient than match-all when working with single invoices.
+    """
+    result = match_products_for_invoice(current_user.id, invoice_id)
+
+    if "error" in result and result["error"] == "Invoice not found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+
+    return result

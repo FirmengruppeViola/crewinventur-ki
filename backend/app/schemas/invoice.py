@@ -33,3 +33,8 @@ class InvoiceItemOut(BaseModel):
     matched_product_id: str | None = None
     match_confidence: float | None = None
     is_manually_matched: bool
+    # AI-normalized fields
+    ai_normalized_name: str | None = None
+    ai_brand: str | None = None
+    ai_size: str | None = None
+    ai_category: str | None = None

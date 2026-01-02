@@ -170,3 +170,61 @@ export function useUnmatchedCount(invoiceId?: string) {
     enabled: Boolean(token && invoiceId),
   })
 }
+
+type SmartMatchResult = {
+  matched_count: number
+  failed_count?: number
+  total_items?: number
+  message: string
+  matches?: Array<{
+    item_id: string
+    product_id: string
+    confidence: number
+    reason: string
+  }>
+}
+
+/**
+ * AI-powered smart matching for a specific invoice.
+ * Uses Gemini to match invoice items to products.
+ */
+export function useSmartMatchInvoice(invoiceId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<SmartMatchResult>(
+        `/api/v1/invoices/${invoiceId}/smart-match`,
+        { method: 'POST' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'items'] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'unmatched-count'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
+/**
+ * AI-powered smart matching for ALL unmatched invoice items.
+ * Use after bulk-uploading invoices.
+ */
+export function useSmartMatchAll() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<SmartMatchResult>(
+        `/api/v1/invoices/smart-match-all`,
+        { method: 'POST' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}

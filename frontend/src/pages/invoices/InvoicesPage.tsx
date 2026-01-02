@@ -1,6 +1,6 @@
 import { useRef, type ChangeEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle } from 'lucide-react'
+import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle, FileStack, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -27,6 +27,14 @@ export function InvoicesPage() {
   // Sheet State
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
 
+  // Multi-Upload State
+  const [uploadProgress, setUploadProgress] = useState<{
+    total: number
+    current: number
+    currentFile: string
+    isUploading: boolean
+  } | null>(null)
+
   const handleOnboardingComplete = (dontShowAgain: boolean) => {
     if (dontShowAgain) {
       localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true')
@@ -43,19 +51,61 @@ export function InvoicesPage() {
   }
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    try {
-      await uploadInvoice.mutateAsync(file)
-      addToast('Rechnung hochgeladen.', 'success')
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Upload fehlgeschlagen.',
-        'error',
-      )
-    } finally {
-      event.target.value = ''
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    // Multi-file upload with progress
+    const fileList = Array.from(files)
+    setUploadProgress({
+      total: fileList.length,
+      current: 0,
+      currentFile: fileList[0].name,
+      isUploading: true,
+    })
+
+    let successCount = 0
+    let errorCount = 0
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i]
+      setUploadProgress({
+        total: fileList.length,
+        current: i + 1,
+        currentFile: file.name,
+        isUploading: true,
+      })
+
+      try {
+        await uploadInvoice.mutateAsync(file)
+        successCount++
+      } catch (error) {
+        errorCount++
+        console.error(`Upload failed for ${file.name}:`, error)
+      }
     }
+
+    setUploadProgress(null)
+
+    if (errorCount === 0) {
+      addToast(
+        fileList.length === 1
+          ? 'Rechnung hochgeladen.'
+          : `${successCount} Rechnungen hochgeladen.`,
+        'success'
+      )
+    } else {
+      addToast(
+        `${successCount} erfolgreich, ${errorCount} fehlgeschlagen.`,
+        errorCount === fileList.length ? 'error' : 'info'
+      )
+    }
+
+    event.target.value = ''
+  }
+
+  const handleCancelUpload = () => {
+    // Note: This doesn't actually cancel in-flight requests, just hides progress
+    setUploadProgress(null)
   }
 
   if (isLoading) {
@@ -137,14 +187,57 @@ export function InvoicesPage() {
         />
       )}
 
-      {/* Hidden File Input */}
+      {/* Hidden File Input - Multiple enabled */}
       <input
         ref={fileRef}
         type="file"
         accept="application/pdf,image/*"
+        multiple
         className="hidden"
         onChange={handleFileChange}
       />
+
+      {/* Upload Progress Overlay */}
+      {uploadProgress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <Card className="w-full max-w-sm mx-4 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <FileStack className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Rechnungen hochladen</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {uploadProgress.current} von {uploadProgress.total}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelUpload}
+                className="p-2 rounded-lg hover:bg-accent transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="h-2 rounded-full bg-accent overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{
+                    width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground truncate">
+                {uploadProgress.currentFile}
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
 
         {/* Detail Sheet */}
         <InvoiceDetailSheet

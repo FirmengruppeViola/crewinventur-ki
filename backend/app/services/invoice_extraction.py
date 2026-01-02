@@ -9,13 +9,37 @@ logger = logging.getLogger(__name__)
 
 def _build_prompt() -> str:
     """Build prompt for invoice extraction."""
-    return (
-        "Extrahiere Rechnungsdaten aus dem Dokument. Antworte NUR mit JSON im Schema: "
-        "{supplier_name, invoice_number, invoice_date, items, totals, confidence}. "
-        "invoice_date im Format YYYY-MM-DD. items ist eine Liste von Positionen mit "
-        "{description, quantity, unit, unit_price_net, unit_price_gross, vat_rate, total_gross}. "
-        "totals: {net, vat_7, vat_19, gross}. confidence 0.0 bis 1.0."
-    )
+    return """Extrahiere Rechnungsdaten aus dem Dokument. Antworte NUR mit JSON im Schema:
+{supplier_name, invoice_number, invoice_date, items, totals, confidence}.
+
+invoice_date im Format YYYY-MM-DD.
+
+items ist eine Liste von Positionen mit:
+{
+  description: Original-Text von der Rechnung (z.B. "Jägerm. 0.7 Kräuterl."),
+  quantity: Menge als Integer,
+  unit: Einheit (Stk, Fl, Kar, etc.),
+  unit_price_net: Netto-Einzelpreis,
+  unit_price_gross: Brutto-Einzelpreis,
+  vat_rate: MwSt-Satz (7 oder 19),
+  total_gross: Brutto-Gesamtpreis,
+
+  normalized_name: WICHTIG! Erkenne das tatsächliche Produkt und schreibe den vollständigen,
+                   sauberen Produktnamen (z.B. "Jägermeister 0,7l" statt "Jägerm. 0.7"),
+  normalized_brand: Marke wenn erkennbar (z.B. "Mast-Jägermeister", "Coca-Cola"),
+  normalized_size: Größe/Volumen einheitlich (z.B. "0,7l", "1L", "0,33l"),
+  normalized_category: Kategorie (Spirituosen, Bier, Wein, Softdrinks, Säfte, Wasser,
+                       Lebensmittel, Snacks, Tabak, Sonstiges)
+}
+
+WICHTIG für normalized_name:
+- Entschlüssele Abkürzungen (Jägerm. → Jägermeister, CocaCola → Coca-Cola)
+- Füge Größe hinzu wenn nicht vorhanden
+- Schreibe Marken korrekt aus
+- Das ist für Produktzuordnung essentiell!
+
+totals: {net, vat_7, vat_19, gross}
+confidence: 0.0 bis 1.0"""
 
 
 def extract_invoice(

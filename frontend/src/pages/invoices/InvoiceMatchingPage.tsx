@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus, Wand2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -10,6 +10,7 @@ import {
   useInvoiceItems,
   useMatchInvoiceItem,
   useAutoCreateProducts,
+  useSmartMatchInvoice,
 } from '../../features/invoices/useInvoices'
 import { useProducts } from '../../features/products/useProducts'
 import { useUiStore } from '../../stores/uiStore'
@@ -92,6 +93,7 @@ export function InvoiceMatchingPage() {
   const { data: items, isLoading } = useInvoiceItems(invoiceId)
   const { data: products } = useProducts()
   const autoCreate = useAutoCreateProducts(invoiceId)
+  const smartMatch = useSmartMatchInvoice(invoiceId)
 
   const options = useMemo(() => {
     return (
@@ -124,6 +126,23 @@ export function InvoiceMatchingPage() {
     }
   }
 
+  const handleSmartMatch = async () => {
+    try {
+      const result = await smartMatch.mutateAsync()
+      addToast(
+        result.matched_count > 0
+          ? `${result.matched_count} Zuordnungen gefunden`
+          : 'Keine Zuordnungen gefunden',
+        result.matched_count > 0 ? 'success' : 'info'
+      )
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Smart Match fehlgeschlagen',
+        'error'
+      )
+    }
+  }
+
   if (isLoading) {
     return <Loading fullScreen />
   }
@@ -144,7 +163,7 @@ export function InvoiceMatchingPage() {
         </div>
       </header>
 
-      {/* Auto-Create Banner */}
+      {/* Smart Actions Banner */}
       {unmatchedCount > 0 && (
         <Card className="p-4 border-primary/20 bg-primary/5">
           <div className="flex items-start gap-4">
@@ -156,17 +175,28 @@ export function InvoiceMatchingPage() {
                 {unmatchedCount} Produkte nicht zugeordnet
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Erstelle automatisch Produkte aus den Rechnungspositionen.
-                Die Preise werden direkt uebernommen.
+                Nutze KI fuer automatische Zuordnung oder erstelle neue Produkte.
               </p>
-              <Button
-                className="mt-3"
-                onClick={handleAutoCreate}
-                loading={autoCreate.isPending}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Alle als Produkte anlegen
-              </Button>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {/* Smart Match - only if products exist */}
+                {products && products.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleSmartMatch}
+                    loading={smartMatch.isPending}
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    KI-Zuordnung
+                  </Button>
+                )}
+                <Button
+                  onClick={handleAutoCreate}
+                  loading={autoCreate.isPending}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Neue Produkte anlegen
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
