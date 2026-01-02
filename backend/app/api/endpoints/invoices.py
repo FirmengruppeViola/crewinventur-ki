@@ -322,3 +322,138 @@ def match_invoice_item(
     ).eq("id", product_id).eq("user_id", current_user.id).execute()
 
     return updated.data[0] if updated.data else item
+
+
+@router.post("/invoices/{invoice_id}/auto-create-products")
+def auto_create_products_from_invoice(
+    invoice_id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Create products from all unmatched invoice items.
+
+    This solves the "chicken-egg" problem:
+    - User uploads invoices first
+    - Invoice items don't match any products
+    - This endpoint creates products from those items
+    - Now when they do inventory, prices are already there
+
+    Returns list of created products.
+    """
+    supabase = get_supabase()
+
+    # Verify invoice belongs to user
+    invoice_resp = (
+        supabase.table("invoices")
+        .select("id, supplier_name, invoice_date")
+        .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not invoice_resp.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+    invoice = invoice_resp.data[0]
+
+    # Get all unmatched items
+    items_resp = (
+        supabase.table("invoice_items")
+        .select("*")
+        .eq("invoice_id", invoice_id)
+        .is_("matched_product_id", "null")
+        .execute()
+    )
+    unmatched_items = items_resp.data or []
+
+    if not unmatched_items:
+        return {"message": "No unmatched items", "created": [], "count": 0}
+
+    created_products = []
+
+    for item in unmatched_items:
+        # Create product from invoice item
+        product_data = {
+            "user_id": current_user.id,
+            "name": item["product_name"],
+            "unit": item.get("unit") or "Stück",
+            "last_price": item.get("unit_price"),
+            "last_supplier": invoice.get("supplier_name"),
+            "last_price_date": invoice.get("invoice_date"),
+            "ai_description": f"Aus Rechnung: {invoice.get('supplier_name', 'Unbekannt')}",
+        }
+
+        try:
+            product_resp = (
+                supabase.table("products")
+                .insert(product_data)
+                .execute()
+            )
+            if product_resp.data:
+                new_product = product_resp.data[0]
+                created_products.append(new_product)
+
+                # Update invoice item with match
+                supabase.table("invoice_items").update({
+                    "matched_product_id": new_product["id"],
+                    "match_confidence": 1.0,
+                    "is_manually_matched": False,  # Auto-created
+                }).eq("id", item["id"]).execute()
+
+        except Exception as e:
+            # Skip duplicates (UNIQUE constraint on name/brand/variant/size)
+            # Try to find existing and match instead
+            existing = (
+                supabase.table("products")
+                .select("id")
+                .eq("user_id", current_user.id)
+                .eq("name", item["product_name"])
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                supabase.table("invoice_items").update({
+                    "matched_product_id": existing.data[0]["id"],
+                    "match_confidence": 0.9,
+                    "is_manually_matched": False,
+                }).eq("id", item["id"]).execute()
+
+    return {
+        "message": f"{len(created_products)} products created",
+        "created": created_products,
+        "count": len(created_products),
+    }
+
+
+@router.get("/invoices/{invoice_id}/unmatched-count")
+def get_unmatched_count(
+    invoice_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Get count of unmatched items in an invoice."""
+    supabase = get_supabase()
+
+    # Verify invoice belongs to user
+    invoice = (
+        supabase.table("invoices")
+        .select("id")
+        .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not invoice.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+
+    items_resp = (
+        supabase.table("invoice_items")
+        .select("id")
+        .eq("invoice_id", invoice_id)
+        .is_("matched_product_id", "null")
+        .execute()
+    )
+
+    return {"unmatched_count": len(items_resp.data or [])}

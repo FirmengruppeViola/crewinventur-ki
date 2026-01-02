@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Loading } from '../../components/ui/Loading'
 import { Select } from '../../components/ui/Select'
-import { useInvoiceItems, useMatchInvoiceItem } from '../../features/invoices/useInvoices'
+import {
+  useInvoiceItems,
+  useMatchInvoiceItem,
+  useAutoCreateProducts,
+} from '../../features/invoices/useInvoices'
 import { useProducts } from '../../features/products/useProducts'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -83,17 +88,41 @@ function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: Mat
 export function InvoiceMatchingPage() {
   const { id } = useParams()
   const invoiceId = id ?? ''
+  const addToast = useUiStore((state) => state.addToast)
   const { data: items, isLoading } = useInvoiceItems(invoiceId)
   const { data: products } = useProducts()
+  const autoCreate = useAutoCreateProducts(invoiceId)
 
   const options = useMemo(() => {
     return (
       products?.map((product) => ({
-        label: product.name,
+        label: `${product.brand ? product.brand + ' ' : ''}${product.name}`,
         value: product.id,
       })) ?? []
     )
   }, [products])
+
+  // Count unmatched items
+  const unmatchedCount = useMemo(() => {
+    return items?.filter((item) => !item.matched_product_id).length || 0
+  }, [items])
+
+  const handleAutoCreate = async () => {
+    try {
+      const result = await autoCreate.mutateAsync()
+      addToast(
+        result.count > 0
+          ? `${result.count} Produkte erstellt`
+          : 'Keine neuen Produkte erstellt',
+        result.count > 0 ? 'success' : 'info'
+      )
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Fehler beim Erstellen',
+        'error'
+      )
+    }
+  }
 
   if (isLoading) {
     return <Loading fullScreen />
@@ -107,13 +136,41 @@ export function InvoiceMatchingPage() {
              <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-foreground">Matching</h1>
           <p className="text-xs text-muted-foreground">
-            {items?.length || 0} Positionen zuordnen
+            {items?.length || 0} Positionen · {unmatchedCount} offen
           </p>
         </div>
       </header>
+
+      {/* Auto-Create Banner */}
+      {unmatchedCount > 0 && (
+        <Card className="p-4 border-primary/20 bg-primary/5">
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-xl bg-primary/20">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">
+                {unmatchedCount} Produkte nicht zugeordnet
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Erstelle automatisch Produkte aus den Rechnungspositionen.
+                Die Preise werden direkt uebernommen.
+              </p>
+              <Button
+                className="mt-3"
+                onClick={handleAutoCreate}
+                loading={autoCreate.isPending}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Alle als Produkte anlegen
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-4">
         {items && items.length > 0 ? (
@@ -133,7 +190,7 @@ export function InvoiceMatchingPage() {
              description="Keine offenen Positionen zum Matchen."
              action={
                <Link to="/invoices">
-                 <Button>Zurück zur Übersicht</Button>
+                 <Button>Zurueck zur Uebersicht</Button>
                </Link>
              }
           />

@@ -124,3 +124,49 @@ export function useMatchInvoiceItem(invoiceId: string, itemId: string) {
     },
   })
 }
+
+type AutoCreateResult = {
+  message: string
+  created: unknown[]
+  count: number
+}
+
+/**
+ * Auto-create products from unmatched invoice items.
+ * Solves the "chicken-egg" problem: upload invoices first, products are created automatically.
+ */
+export function useAutoCreateProducts(invoiceId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<AutoCreateResult>(
+        `/api/v1/invoices/${invoiceId}/auto-create-products`,
+        { method: 'POST' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'items'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+  })
+}
+
+/**
+ * Get count of unmatched items in an invoice.
+ */
+export function useUnmatchedCount(invoiceId?: string) {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['invoices', invoiceId, 'unmatched-count'],
+    queryFn: () =>
+      apiRequest<{ unmatched_count: number }>(
+        `/api/v1/invoices/${invoiceId}/unmatched-count`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && invoiceId),
+  })
+}
