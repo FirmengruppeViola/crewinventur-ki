@@ -1,7 +1,7 @@
 import base64
 import logging
 
-from app.core.gemini import generate_json_with_fallback, ThinkingLevel, GeminiError
+from app.core.gemini import generate_json, ThinkingLevel
 from app.schemas.gemini_responses import ProductRecognitionResponse
 
 logger = logging.getLogger(__name__)
@@ -45,11 +45,11 @@ def recognize_product(
     image_bytes = base64.b64decode(image_base64)
     prompt = _build_prompt(categories)
 
-    data = generate_json_with_fallback(
+    data = generate_json(
         prompt=prompt,
         image_bytes=image_bytes,
         mime_type=mime_type,
-        thinking_level=ThinkingLevel.MINIMAL,  # Fast for single product
+        thinking_level=ThinkingLevel.MINIMAL,
     )
 
     result = ProductRecognitionResponse.model_validate(data)
@@ -86,11 +86,11 @@ def recognize_multiple_products(
         f"Kategorie MUSS eine der folgenden sein: {categories_text}."
     )
 
-    data = generate_json_with_fallback(
+    data = generate_json(
         prompt=prompt,
         image_bytes=image_bytes,
         mime_type=mime_type,
-        thinking_level=ThinkingLevel.LOW,  # More reasoning for multiple items
+        thinking_level=ThinkingLevel.LOW,
     )
 
     items = data.get("products", data) if isinstance(data, dict) else data

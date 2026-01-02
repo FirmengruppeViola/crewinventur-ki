@@ -12,24 +12,15 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_PRIMARY = "gemini-3-flash-preview"
-MODEL_FALLBACK = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3-flash-preview"
 
 
 class ThinkingLevel(str, Enum):
-    """Thinking levels for Gemini API - controls reasoning depth."""
+    """Thinking levels for Gemini 3 API - controls reasoning depth."""
     MINIMAL = "minimal"  # Fast, simple tasks (single product recognition)
     LOW = "low"          # Multiple items (shelf scan)
     MEDIUM = "medium"    # Analysis tasks (inventory comparison)
     HIGH = "high"        # Complex extraction (invoices with calculations)
-
-
-THINKING_BUDGETS = {
-    ThinkingLevel.MINIMAL: 500,
-    ThinkingLevel.LOW: 2000,
-    ThinkingLevel.MEDIUM: 4000,
-    ThinkingLevel.HIGH: 8000,
-}
 
 
 class GeminiError(Exception):
@@ -70,7 +61,7 @@ def _extract_json(text: str) -> Any:
 
     if not start_candidates:
         logger.error(f"No JSON found in response: {text[:200]}...")
-        raise GeminiParseError(f"No JSON structure found in response")
+        raise GeminiParseError("No JSON structure found in response")
 
     start = min(start_candidates)
     if text[start] == "{":
@@ -122,17 +113,15 @@ def generate_json(
     prompt: str,
     image_bytes: bytes | None = None,
     mime_type: str = "image/jpeg",
-    model_name: str = MODEL_PRIMARY,
     thinking_level: ThinkingLevel = ThinkingLevel.MINIMAL,
 ) -> Any:
     """
-    Generate JSON response from Gemini.
+    Generate JSON response from Gemini 3 Flash.
 
     Args:
         prompt: The text prompt
         image_bytes: Optional image data
         mime_type: MIME type of the image
-        model_name: Model to use
         thinking_level: Controls reasoning depth (affects cost/latency)
 
     Returns:
@@ -144,9 +133,9 @@ def generate_json(
     """
     configure_gemini()
 
-    logger.info(f"Gemini request: model={model_name}, thinking={thinking_level.value}, has_image={image_bytes is not None}")
+    logger.info(f"Gemini request: model={MODEL_NAME}, thinking={thinking_level.value}, has_image={image_bytes is not None}")
 
-    model = genai.GenerativeModel(model_name=model_name)
+    model = genai.GenerativeModel(model_name=MODEL_NAME)
 
     parts: list[Any] = [prompt]
     if image_bytes:
@@ -167,7 +156,7 @@ def generate_json(
             raise GeminiAPIError("Empty response from Gemini API")
 
         result = _extract_json(response.text)
-        logger.info(f"Gemini response parsed successfully")
+        logger.info("Gemini response parsed successfully")
         return result
 
     except google_exceptions.GoogleAPIError as e:
@@ -178,33 +167,3 @@ def generate_json(
     except Exception as e:
         logger.error(f"Unexpected error in Gemini call: {type(e).__name__}: {e}")
         raise GeminiAPIError(f"Unexpected error: {e}") from e
-
-
-def generate_json_with_fallback(
-    prompt: str,
-    image_bytes: bytes | None = None,
-    mime_type: str = "image/jpeg",
-    thinking_level: ThinkingLevel = ThinkingLevel.MINIMAL,
-) -> Any:
-    """
-    Generate JSON with automatic fallback to secondary model.
-
-    Tries primary model first, falls back to secondary on failure.
-    """
-    try:
-        return generate_json(
-            prompt=prompt,
-            image_bytes=image_bytes,
-            mime_type=mime_type,
-            model_name=MODEL_PRIMARY,
-            thinking_level=thinking_level,
-        )
-    except GeminiAPIError as e:
-        logger.warning(f"Primary model failed ({e}), trying fallback: {MODEL_FALLBACK}")
-        return generate_json(
-            prompt=prompt,
-            image_bytes=image_bytes,
-            mime_type=mime_type,
-            model_name=MODEL_FALLBACK,
-            thinking_level=thinking_level,
-        )

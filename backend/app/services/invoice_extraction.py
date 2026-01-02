@@ -1,7 +1,7 @@
 import base64
 import logging
 
-from app.core.gemini import generate_json_with_fallback, ThinkingLevel, GeminiError
+from app.core.gemini import generate_json, ThinkingLevel
 from app.schemas.gemini_responses import InvoiceExtractionResponse
 
 logger = logging.getLogger(__name__)
@@ -41,11 +41,11 @@ def extract_invoice(
     file_bytes = base64.b64decode(file_base64)
     prompt = _build_prompt()
 
-    data = generate_json_with_fallback(
+    data = generate_json(
         prompt=prompt,
         image_bytes=file_bytes,
         mime_type=mime_type,
-        thinking_level=ThinkingLevel.HIGH,  # High reasoning for accurate numbers
+        thinking_level=ThinkingLevel.HIGH,
     )
 
     result = InvoiceExtractionResponse.model_validate(data)
