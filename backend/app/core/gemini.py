@@ -12,8 +12,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_PRIMARY = "gemini-2.0-flash"
-MODEL_FALLBACK = "gemini-1.5-flash"
+MODEL_PRIMARY = "gemini-3-flash-preview"
+MODEL_FALLBACK = "gemini-2.0-flash"
 
 
 class ThinkingLevel(str, Enum):
@@ -154,6 +154,7 @@ def generate_json(
 
     generation_config: dict[str, Any] = {
         "response_mime_type": "application/json",
+        "thinking_level": thinking_level.value,
     }
 
     try:
