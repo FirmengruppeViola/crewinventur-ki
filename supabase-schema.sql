@@ -15,6 +15,8 @@ CREATE TABLE public.profiles (
     email TEXT NOT NULL,
     display_name TEXT,
     company_name TEXT,
+    user_type TEXT DEFAULT 'owner',  -- 'owner' | 'manager'
+    owner_id UUID REFERENCES auth.users(id),  -- NULL für Owner, Owner-ID für Manager
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -320,6 +322,70 @@ CREATE POLICY "Users can manage own bundle sessions" ON public.inventory_bundle_
 
 CREATE INDEX idx_bundles_user ON public.inventory_bundles(user_id);
 CREATE INDEX idx_bundle_sessions_bundle ON public.inventory_bundle_sessions(bundle_id);
+
+-- =====================================================
+-- TEAM_MEMBERS (Betriebsleiter)
+-- =====================================================
+CREATE TABLE public.team_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- NULL bis Einladung angenommen
+
+    name TEXT NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL DEFAULT 'manager',
+
+    invitation_code TEXT UNIQUE,
+    invitation_expires_at TIMESTAMPTZ,
+    invitation_accepted_at TIMESTAMPTZ,
+
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Owner can manage team members" ON public.team_members
+    FOR ALL USING (auth.uid() = owner_id);
+CREATE POLICY "Manager can view own record" ON public.team_members
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE INDEX idx_team_members_owner ON public.team_members(owner_id);
+CREATE INDEX idx_team_members_user ON public.team_members(user_id);
+CREATE INDEX idx_team_members_code ON public.team_members(invitation_code) WHERE invitation_code IS NOT NULL;
+
+-- =====================================================
+-- TEAM_MEMBER_LOCATIONS (n:m Zuordnung)
+-- =====================================================
+CREATE TABLE public.team_member_locations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_member_id UUID NOT NULL REFERENCES public.team_members(id) ON DELETE CASCADE,
+    location_id UUID NOT NULL REFERENCES public.locations(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE(team_member_id, location_id)
+);
+
+ALTER TABLE public.team_member_locations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Owner can manage location assignments" ON public.team_member_locations
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.team_members tm
+            WHERE tm.id = team_member_id AND tm.owner_id = auth.uid()
+        )
+    );
+CREATE POLICY "Manager can view own location assignments" ON public.team_member_locations
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.team_members tm
+            WHERE tm.id = team_member_id AND tm.user_id = auth.uid()
+        )
+    );
+
+CREATE INDEX idx_team_member_locations_member ON public.team_member_locations(team_member_id);
+CREATE INDEX idx_team_member_locations_location ON public.team_member_locations(location_id);
 
 -- =====================================================
 -- FUNCTIONS

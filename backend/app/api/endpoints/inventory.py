@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_context, UserContext
 from app.core.supabase import get_supabase
 from app.schemas.inventory import (
     InventoryItemCreate,
@@ -29,16 +29,61 @@ def _recalculate_totals(supabase, session_id: str):
     ).eq("id", session_id).execute()
 
 
+def _verify_session_access(supabase, session_id: str, current_user: UserContext) -> dict:
+    """
+    Verify user has access to session.
+    Returns session data if authorized, raises HTTPException otherwise.
+    """
+    response = supabase.table("inventory_sessions").select("*").eq("id", session_id).execute()
+    session = response.data[0] if response.data else None
+
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    if current_user.is_owner:
+        if session["user_id"] != current_user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    else:
+        # Manager: check if session's location is in allowed locations
+        if session["location_id"] not in current_user.allowed_location_ids:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        # Also verify session belongs to their owner
+        if session["user_id"] != current_user.effective_owner_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    return session
+
+
 @router.get("/inventory/sessions", response_model=list[InventorySessionOut])
-def list_sessions(current_user=Depends(get_current_user)):
+def list_sessions(current_user: UserContext = Depends(get_current_user_context)):
+    """
+    List inventory sessions.
+    - Owner: All their sessions
+    - Manager: Only sessions for their assigned locations
+    """
     supabase = get_supabase()
-    response = (
-        supabase.table("inventory_sessions")
-        .select("*")
-        .eq("user_id", current_user.id)
-        .order("created_at", desc=True)
-        .execute()
-    )
+
+    if current_user.is_owner:
+        response = (
+            supabase.table("inventory_sessions")
+            .select("*")
+            .eq("user_id", current_user.id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    else:
+        # Manager: filter by allowed locations
+        if not current_user.allowed_location_ids:
+            return []
+        response = (
+            supabase.table("inventory_sessions")
+            .select("*")
+            .eq("user_id", current_user.effective_owner_id)
+            .in_("location_id", current_user.allowed_location_ids)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
     return response.data or []
 
 
@@ -47,13 +92,46 @@ def list_sessions(current_user=Depends(get_current_user)):
     response_model=InventorySessionOut,
     status_code=status.HTTP_201_CREATED,
 )
-def create_session(payload: InventorySessionCreate, current_user=Depends(get_current_user)):
+def create_session(
+    payload: InventorySessionCreate,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """
+    Create a new inventory session.
+    - Owner: Can create for any of their locations
+    - Manager: Can only create for assigned locations
+    """
     supabase = get_supabase()
+
+    # Verify location access
+    if current_user.is_owner:
+        # Verify location belongs to owner
+        loc_check = (
+            supabase.table("locations")
+            .select("id")
+            .eq("id", payload.location_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+        if not loc_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Location not found",
+            )
+        owner_id = current_user.id
+    else:
+        # Manager: verify location is in their allowed list
+        if payload.location_id not in current_user.allowed_location_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized for this location",
+            )
+        owner_id = current_user.effective_owner_id
 
     previous = (
         supabase.table("inventory_sessions")
         .select("id")
-        .eq("user_id", current_user.id)
+        .eq("user_id", owner_id)
         .eq("location_id", payload.location_id)
         .eq("status", "completed")
         .order("completed_at", desc=True)
@@ -66,7 +144,7 @@ def create_session(payload: InventorySessionCreate, current_user=Depends(get_cur
         supabase.table("inventory_sessions")
         .insert(
             {
-                "user_id": current_user.id,
+                "user_id": owner_id,  # Always use owner's ID for data ownership
                 "location_id": payload.location_id,
                 "name": payload.name,
                 "previous_session_id": previous_id,
@@ -84,31 +162,27 @@ def create_session(payload: InventorySessionCreate, current_user=Depends(get_cur
 
 
 @router.get("/inventory/sessions/{session_id}", response_model=InventorySessionOut)
-def get_session(session_id: str, current_user=Depends(get_current_user)):
+def get_session(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """Get a session by ID."""
     supabase = get_supabase()
-    response = (
-        supabase.table("inventory_sessions")
-        .select("*")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    data = response.data[0] if response.data else None
-    if data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-    return data
+    return _verify_session_access(supabase, session_id, current_user)
 
 
 @router.put("/inventory/sessions/{session_id}", response_model=InventorySessionOut)
 def update_session(
     session_id: str,
     payload: InventorySessionUpdate,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
+    """Update a session."""
     supabase = get_supabase()
+
+    # Verify access
+    _verify_session_access(supabase, session_id, current_user)
+
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(
@@ -120,7 +194,6 @@ def update_session(
         supabase.table("inventory_sessions")
         .update(update_data)
         .eq("id", session_id)
-        .eq("user_id", current_user.id)
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -133,29 +206,22 @@ def update_session(
 
 
 @router.post("/inventory/sessions/{session_id}/complete", response_model=InventorySessionOut)
-def complete_session(session_id: str, current_user=Depends(get_current_user)):
+def complete_session(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """Complete an inventory session and calculate differences."""
     supabase = get_supabase()
 
-    session_resp = (
-        supabase.table("inventory_sessions")
-        .select("*")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    session = session_resp.data[0] if session_resp.data else None
-    if session is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
+    # Verify access and get session
+    session = _verify_session_access(supabase, session_id, current_user)
 
     previous_id = session.get("previous_session_id")
     if not previous_id:
         previous = (
             supabase.table("inventory_sessions")
             .select("id")
-            .eq("user_id", current_user.id)
+            .eq("user_id", current_user.effective_owner_id)
             .eq("location_id", session["location_id"])
             .eq("status", "completed")
             .order("completed_at", desc=True)
@@ -219,20 +285,16 @@ def complete_session(session_id: str, current_user=Depends(get_current_user)):
 
 
 @router.get("/inventory/sessions/{session_id}/items", response_model=list[InventoryItemOut])
-def list_session_items(session_id: str, current_user=Depends(get_current_user)):
+def list_session_items(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """List all items in a session."""
     supabase = get_supabase()
-    session = (
-        supabase.table("inventory_sessions")
-        .select("id")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if not session.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
+
+    # Verify access
+    _verify_session_access(supabase, session_id, current_user)
+
     response = (
         supabase.table("inventory_items")
         .select("*")
@@ -251,7 +313,7 @@ def list_session_items(session_id: str, current_user=Depends(get_current_user)):
 def add_session_item(
     session_id: str,
     payload: InventoryItemCreate,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Add item to inventory session with support for:
@@ -260,18 +322,9 @@ def add_session_item(
     - Duplicate handling via merge_mode: 'add', 'replace', or 'new_entry'
     """
     supabase = get_supabase()
-    session = (
-        supabase.table("inventory_sessions")
-        .select("id")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if not session.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
+
+    # Verify access
+    _verify_session_access(supabase, session_id, current_user)
 
     # Resolve quantity: new format (full+partial) or legacy (quantity)
     if payload.full_quantity is not None:
@@ -298,7 +351,7 @@ def add_session_item(
             supabase.table("products")
             .select("last_price")
             .eq("id", payload.product_id)
-            .eq("user_id", current_user.id)
+            .eq("user_id", current_user.effective_owner_id)
             .execute()
         )
         unit_price = product.data[0]["last_price"] if product.data else 0
@@ -400,8 +453,15 @@ def add_session_item(
 
 
 @router.put("/inventory/items/{item_id}", response_model=InventoryItemOut)
-def update_item(item_id: str, payload: InventoryItemUpdate, current_user=Depends(get_current_user)):
+def update_item(
+    item_id: str,
+    payload: InventoryItemUpdate,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """Update an inventory item."""
     supabase = get_supabase()
+
+    # Get item to find session_id
     item_resp = (
         supabase.table("inventory_items")
         .select("id, session_id")
@@ -414,17 +474,9 @@ def update_item(item_id: str, payload: InventoryItemUpdate, current_user=Depends
             detail="Item not found",
         )
     session_id = item_resp.data[0]["session_id"]
-    session_resp = (
-        supabase.table("inventory_sessions")
-        .select("user_id")
-        .eq("id", session_id)
-        .execute()
-    )
-    if not session_resp.data or session_resp.data[0]["user_id"] != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized",
-        )
+
+    # Verify session access
+    _verify_session_access(supabase, session_id, current_user)
 
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
@@ -451,8 +503,14 @@ def update_item(item_id: str, payload: InventoryItemUpdate, current_user=Depends
 
 
 @router.delete("/inventory/items/{item_id}", response_model=InventoryItemOut)
-def delete_item(item_id: str, current_user=Depends(get_current_user)):
+def delete_item(
+    item_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """Delete an inventory item."""
     supabase = get_supabase()
+
+    # Get item to find session_id
     item_resp = (
         supabase.table("inventory_items")
         .select("id, session_id")
@@ -465,17 +523,9 @@ def delete_item(item_id: str, current_user=Depends(get_current_user)):
             detail="Item not found",
         )
     session_id = item_resp.data[0]["session_id"]
-    session_resp = (
-        supabase.table("inventory_sessions")
-        .select("user_id")
-        .eq("id", session_id)
-        .execute()
-    )
-    if not session_resp.data or session_resp.data[0]["user_id"] != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized",
-        )
+
+    # Verify session access
+    _verify_session_access(supabase, session_id, current_user)
 
     response = (
         supabase.table("inventory_items")

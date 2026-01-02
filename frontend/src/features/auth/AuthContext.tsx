@@ -2,7 +2,7 @@ import { createContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
-import { useAuthStore } from '../../stores/authStore'
+import { useAuthStore, type UserType } from '../../stores/authStore'
 
 type SignInInput = {
   email: string
@@ -23,10 +23,14 @@ type AuthContextValue = {
   session: Session | null
   user: User | null
   loading: boolean
+  userType: UserType
+  isOwner: boolean
+  isManager: boolean
   signIn: (input: SignInInput) => Promise<AuthResult>
   signUp: (input: SignUpInput) => Promise<AuthResult>
   signOut: () => Promise<AuthResult>
   resetPassword: (email: string) => Promise<AuthResult>
+  acceptInvitation: (code: string) => Promise<AuthResult>
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -54,33 +58,83 @@ async function ensureProfile(user: User) {
   })
 }
 
+async function loadUserContext(
+  userId: string,
+  setUserContext: (userType: UserType, ownerId: string | null, locationIds: string[]) => void
+) {
+  // Load profile to get user_type and owner_id
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type, owner_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const userType = (profile?.user_type as UserType) || 'owner'
+  const ownerId = profile?.owner_id || null
+
+  // Load allowed locations
+  let locationIds: string[] = []
+
+  if (userType === 'owner' || !ownerId) {
+    // Owner sees all their locations
+    const { data: locations } = await supabase
+      .from('locations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+    locationIds = locations?.map((l) => l.id) || []
+  } else {
+    // Manager sees only assigned locations via team_member_locations
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (teamMember) {
+      const { data: assignments } = await supabase
+        .from('team_member_locations')
+        .select('location_id')
+        .eq('team_member_id', teamMember.id)
+      locationIds = assignments?.map((a) => a.location_id) || []
+    }
+  }
+
+  setUserContext(userType, ownerId, locationIds)
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const setAuth = useAuthStore((state) => state.setAuth)
+  const setUserContext = useAuthStore((state) => state.setUserContext)
   const clearAuth = useAuthStore((state) => state.clearAuth)
+  const userType = useAuthStore((state) => state.userType)
 
   useEffect(() => {
     let active = true
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return
       const nextSession = data.session ?? null
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
-        ensureProfile(nextSession.user)
+        await ensureProfile(nextSession.user)
+        await loadUserContext(nextSession.user.id, setUserContext)
       } else {
         clearAuth()
       }
       setLoading(false)
     })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
-        ensureProfile(nextSession.user)
+        await ensureProfile(nextSession.user)
+        await loadUserContext(nextSession.user.id, setUserContext)
       } else {
         clearAuth()
       }
@@ -90,13 +144,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false
       data.subscription.unsubscribe()
     }
-  }, [clearAuth, setAuth])
+  }, [clearAuth, setAuth, setUserContext])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user: session?.user ?? null,
       loading,
+      userType,
+      isOwner: userType === 'owner',
+      isManager: userType === 'manager',
       signIn: async ({ email, password }) => {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -132,8 +189,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         return { error: error?.message ?? null }
       },
+      acceptInvitation: async (code: string) => {
+        // This calls the backend API to accept the invitation
+        // User must already be logged in via Supabase
+        const token = session?.access_token
+        if (!token) {
+          return { error: 'Nicht eingeloggt' }
+        }
+
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/team/accept-invitation`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ invitation_code: code }),
+            }
+          )
+
+          if (!response.ok) {
+            const data = await response.json()
+            return { error: data.detail || 'Einladung fehlgeschlagen' }
+          }
+
+          // Reload user context after accepting invitation
+          if (session?.user) {
+            await loadUserContext(session.user.id, setUserContext)
+          }
+
+          return { error: null }
+        } catch {
+          return { error: 'Netzwerkfehler' }
+        }
+      },
     }),
-    [loading, session],
+    [loading, session, userType, setUserContext],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

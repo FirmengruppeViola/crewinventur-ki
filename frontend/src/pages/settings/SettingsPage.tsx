@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom'
-import { User, Info, LogOut, ChevronRight } from 'lucide-react'
+import { User, Users, Info, LogOut, ChevronRight } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAuth } from '../../features/auth/useAuth'
 import { useUiStore } from '../../stores/uiStore'
 
 export function SettingsPage() {
-  const { signOut, user } = useAuth()
+  const { signOut, user, isOwner } = useAuth()
   const addToast = useUiStore((state) => state.addToast)
 
   const handleLogout = async () => {
@@ -28,20 +28,37 @@ export function SettingsPage() {
       <div className="space-y-4">
         <section>
            <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account</h2>
-           <Link to="/settings/profile">
-             <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
-               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                 <User className="h-6 w-6" />
-               </div>
-               <div className="flex-1 overflow-hidden">
-                 <p className="truncate font-medium text-foreground">
-                   {user?.email ?? 'Nicht eingeloggt'}
-                 </p>
-                 <p className="text-xs text-muted-foreground">Profil und Firma verwalten</p>
-               </div>
-               <ChevronRight className="h-5 w-5 text-muted-foreground" />
-             </Card>
-           </Link>
+           <div className="space-y-2">
+             <Link to="/settings/profile">
+               <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
+                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                   <User className="h-6 w-6" />
+                 </div>
+                 <div className="flex-1 overflow-hidden">
+                   <p className="truncate font-medium text-foreground">
+                     {user?.email ?? 'Nicht eingeloggt'}
+                   </p>
+                   <p className="text-xs text-muted-foreground">Profil und Firma verwalten</p>
+                 </div>
+                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
+               </Card>
+             </Link>
+
+             {isOwner && (
+               <Link to="/settings/team">
+                 <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
+                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+                     <Users className="h-6 w-6" />
+                   </div>
+                   <div className="flex-1 overflow-hidden">
+                     <p className="truncate font-medium text-foreground">Team</p>
+                     <p className="text-xs text-muted-foreground">Betriebsleiter verwalten</p>
+                   </div>
+                   <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                 </Card>
+               </Link>
+             )}
+           </div>
         </section>
 
         <section>

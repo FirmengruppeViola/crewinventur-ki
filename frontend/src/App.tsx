@@ -3,7 +3,9 @@ import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
+import { AcceptInvitePage } from './pages/auth/AcceptInvitePage'
 import { ProfilePage } from './pages/settings/ProfilePage'
+import { TeamPage } from './pages/settings/TeamPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { LocationsPage } from './pages/locations/LocationsPage'
@@ -39,6 +41,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AppShell />}>
@@ -54,6 +57,7 @@ function App() {
               <Route path="/products/:id/edit" element={<ProductFormPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/profile" element={<ProfilePage />} />
+              <Route path="/settings/team" element={<TeamPage />} />
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/inventory/bundles" element={<BundlesPage />} />
               <Route path="/inventory/bundles/:id" element={<BundleSummaryPage />} />

@@ -100,6 +100,15 @@ export function LoginPage() {
               Jetzt registrieren
             </Link>
           </div>
+
+          <div className="mt-4 pt-4 border-t border-border text-center">
+            <Link
+              to="/accept-invite"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Einladungscode eingeben
+            </Link>
+          </div>
         </Card>
       </div>
     </div>
