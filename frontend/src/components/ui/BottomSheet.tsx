@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -17,20 +17,46 @@ export function BottomSheet({
   children,
   className
 }: BottomSheetProps) {
-  if (!isOpen) return null
+  const [isVisible, setIsVisible] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true)
+      // Small delay to allow browser to paint the 'transform-y-full' state first
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsVisible(true)
+        })
+      })
+    } else {
+      setIsVisible(false)
+      // Wait for animation to finish before unmounting
+      const timer = setTimeout(() => {
+        setShouldRender(false)
+      }, 300) // Match duration-300
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
+
+  if (!shouldRender) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity" 
+        className={cn(
+          "fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300 ease-spring",
+          isVisible ? "opacity-100" : "opacity-0"
+        )}
         onClick={onClose} 
         role="presentation" 
       />
       
       {/* Sheet Content */}
       <div className={cn(
-        "relative z-10 w-full max-w-lg rounded-t-3xl border-t border-white/10 bg-card p-6 shadow-2xl transition-transform animate-accordion-up sm:rounded-2xl sm:border sm:animate-fade-in",
+        "relative z-10 w-full max-w-lg rounded-t-3xl border-t border-white/10 bg-card p-6 shadow-2xl transition-transform duration-300 ease-spring sm:rounded-2xl sm:border",
+        isVisible ? "translate-y-0 scale-100" : "translate-y-full scale-95",
         className
       )}>
         <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-muted sm:hidden" />
@@ -41,7 +67,7 @@ export function BottomSheet({
           </div>
         )}
 
-        <div className="mb-4">
+        <div className="mb-4 max-h-[80vh] overflow-y-auto">
            {children}
         </div>
 

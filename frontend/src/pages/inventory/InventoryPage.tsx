@@ -119,11 +119,16 @@ export function InventoryPage() {
              Aktuelle Zählungen und Historie.
            </p>
         </div>
-        <Link to="/inventory/bundles">
-            <Button variant="outline" size="sm">
-               <Archive className="mr-2 h-4 w-4" /> Bundles
-            </Button>
-        </Link>
+        <div className="flex gap-2">
+           <Link to="/inventory/bundles">
+              <Button variant="outline" size="icon" className="rounded-full h-12 w-12">
+                 <Archive className="h-5 w-5" />
+              </Button>
+           </Link>
+           <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={() => setIsOpen(true)}>
+             <Plus className="h-6 w-6" />
+           </Button>
+        </div>
       </header>
 
       {/* Active Sessions Section */}
@@ -173,7 +178,7 @@ export function InventoryPage() {
         </div>
         
         {completedSessions.length > 0 ? (
-          <div className="grid gap-2">
+          <div className="grid gap-4">
             {completedSessions.map((session) => (
                <Card 
                  key={session.id} 
@@ -203,15 +208,6 @@ export function InventoryPage() {
           />
         )}
       </section>
-
-      {/* FAB */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(59,130,246,0.4)] hover:bg-primary/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-30"
-        aria-label="Neue Session"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
 
       {/* New Session Modal */}
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Neue Inventur starten">

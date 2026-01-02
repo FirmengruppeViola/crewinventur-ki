@@ -44,13 +44,18 @@ export function InvoicesPage() {
 
   return (
     <div className="space-y-6 pb-40">
-      <header className="px-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Rechnungen</h1>
-        <p className="text-sm text-muted-foreground">Digitale Erfassung und Matching.</p>
+      <header className="px-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Rechnungen</h1>
+          <p className="text-sm text-muted-foreground">Digitale Erfassung und Matching.</p>
+        </div>
+        <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={handlePickFile} loading={uploadInvoice.isPending}>
+          <Upload className="h-6 w-6" />
+        </Button>
       </header>
 
       {invoices && invoices.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {invoices.map((invoice) => {
              const statusColor = 
                invoice.status === 'processed' ? 'text-emerald-500' :
@@ -105,15 +110,6 @@ export function InvoicesPage() {
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {/* FAB */}
-      <button
-        onClick={handlePickFile}
-        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(59,130,246,0.4)] hover:bg-primary/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-30"
-        aria-label="Upload Invoice"
-      >
-        <Upload className="h-6 w-6" />
-      </button>
 
       {/* Detail Sheet */}
       <InvoiceDetailSheet 

@@ -109,11 +109,21 @@ export function ProductsPage() {
 
   return (
     <div className="space-y-6 pb-40">
-      <header className="px-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Produkte</h1>
-        <p className="text-sm text-muted-foreground">
-          Dein Katalog. Durchsuchbar und griffbereit.
-        </p>
+      <header className="px-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Produkte</h1>
+          <p className="text-sm text-muted-foreground">
+            Dein Katalog. Durchsuchbar und griffbereit.
+          </p>
+        </div>
+        <div className="flex gap-2">
+           <Button size="icon" variant="secondary" className="rounded-full h-12 w-12" onClick={() => addToast('Scanner startet... (Mock)', 'info')}>
+             <ScanLine className="h-5 w-5" />
+           </Button>
+           <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={handleOpenCreate}>
+             <Plus className="h-6 w-6" />
+           </Button>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 sticky top-0 z-20 bg-background/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/50">
@@ -140,7 +150,7 @@ export function ProductsPage() {
       </div>
 
       {products && products.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {products.map((product) => (
             <Card 
               key={product.id} 
@@ -175,24 +185,6 @@ export function ProductsPage() {
           }
         />
       )}
-
-      {/* FAB Group */}
-      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-30">
-        <button
-           onClick={() => { /* Mock Scan Action */ addToast('Scanner startet... (Mock)', 'info') }}
-           className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg hover:bg-secondary/80 transition-all"
-           aria-label="Scan"
-        >
-          <ScanLine className="h-5 w-5" />
-        </button>
-        <button
-          onClick={handleOpenCreate}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(59,130,246,0.4)] hover:bg-primary/90 hover:scale-105 transition-all"
-          aria-label="Neues Produkt"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
-      </div>
 
       {/* Detail/Edit Sheet */}
       <BottomSheet isOpen={isSheetOpen} onClose={handleClose}>

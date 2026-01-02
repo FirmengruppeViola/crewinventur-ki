@@ -79,12 +79,17 @@ export function LocationsPage() {
   if (isLoading) return <Loading fullScreen />
 
   return (
-    <div className="space-y-6 pb-40">
-      <header className="px-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Locations</h1>
-        <p className="text-sm text-muted-foreground">
-          Deine Standorte im Überblick.
-        </p>
+    <div className="space-y-8 pb-40">
+      <header className="px-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Locations</h1>
+          <p className="text-sm text-muted-foreground">
+            Deine Standorte im Überblick.
+          </p>
+        </div>
+        <Button size="icon" className="rounded-full h-12 w-12 shadow-lg shadow-primary/20" onClick={handleOpenCreate}>
+          <Plus className="h-6 w-6" />
+        </Button>
       </header>
 
       {error ? (
@@ -94,7 +99,7 @@ export function LocationsPage() {
       ) : null}
 
       {data && data.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           {data.map((location) => (
             <Card 
               key={location.id} 
@@ -123,14 +128,6 @@ export function LocationsPage() {
           }
         />
       )}
-
-      {/* FAB */}
-      <button
-        onClick={handleOpenCreate}
-        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(59,130,246,0.4)] hover:bg-primary/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-30"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
 
       {/* Detail/Edit Sheet */}
       <BottomSheet isOpen={isSheetOpen} onClose={handleClose}>
