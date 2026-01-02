@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, MapPin, Package, FileText, Settings } from 'lucide-react'
+import { Home, MapPin, Package, FileText } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
@@ -7,7 +7,6 @@ const navItems = [
   { label: 'Orte', to: '/locations', icon: MapPin },
   { label: 'Inventur', to: '/inventory', icon: Package },
   { label: 'Preise', to: '/invoices', icon: FileText },
-  { label: 'Profil', to: '/settings', icon: Settings },
 ]
 
 export function BottomNav() {

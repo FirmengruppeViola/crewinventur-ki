@@ -247,7 +247,7 @@ export function ActiveSessionPage() {
       </div>
 
       {/* FAB - Scan Button */}
-      <div className="fixed bottom-24 right-4 z-50">
+      <div className="fixed bottom-28 right-4 z-50">
         <button
           onClick={() => setShowScanOptions(true)}
           className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-transform"
