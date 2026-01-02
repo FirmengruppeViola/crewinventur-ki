@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Save, CheckCircle2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { Loading } from '../../components/ui/Loading'
 import { Select } from '../../components/ui/Select'
 import { useInvoiceItems, useMatchInvoiceItem } from '../../features/invoices/useInvoices'
@@ -18,6 +19,7 @@ type MatchRowProps = {
 
 function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: MatchRowProps) {
   const [selected, setSelected] = useState(defaultMatch ?? '')
+  const [isSaved, setIsSaved] = useState(false)
   const addToast = useUiStore((state) => state.addToast)
   const matchItem = useMatchInvoiceItem(invoiceId, itemId)
 
@@ -26,6 +28,8 @@ function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: Mat
     try {
       await matchItem.mutateAsync(selected)
       addToast('Match gespeichert.', 'success')
+      setIsSaved(true)
+      setTimeout(() => setIsSaved(false), 2000)
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Match fehlgeschlagen.',
@@ -35,17 +39,43 @@ function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: Mat
   }
 
   return (
-    <div className="space-y-2 border-b border-gray-100 pb-3">
-      <p className="text-sm font-medium text-gray-900">{productName}</p>
-      <Select
-        options={[{ label: 'Produkt waehlen', value: '' }, ...options]}
-        name={`match-${itemId}`}
-        value={selected}
-        onChange={(event) => setSelected(event.target.value)}
-      />
-      <Button size="sm" onClick={handleMatch} loading={matchItem.isPending}>
-        Match speichern
-      </Button>
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/20">
+      <div className="flex items-start justify-between">
+         <div className="flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Rechnungsposition</p>
+            <p className="text-base font-medium text-foreground mt-1">{productName}</p>
+         </div>
+         {defaultMatch && !isSaved && (
+            <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-500 uppercase">Gematcht</span>
+         )}
+         {isSaved && (
+             <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary uppercase animate-fade-in">
+                <CheckCircle2 className="h-3 w-3" /> Gespeichert
+             </span>
+         )}
+      </div>
+      
+      <div className="flex items-end gap-2 mt-2">
+        <div className="flex-1">
+           <Select
+            label="Zuordnung im System"
+            options={[{ label: 'Produkt wählen...', value: '' }, ...options]}
+            name={`match-${itemId}`}
+            value={selected}
+            onChange={(event) => setSelected(event.target.value)}
+            className="bg-background"
+          />
+        </div>
+        <Button 
+          size="md" 
+          onClick={handleMatch} 
+          loading={matchItem.isPending}
+          disabled={!selected || selected === defaultMatch}
+          className="mb-[1px]" // Align with input
+        >
+          <Save className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   )
 }
@@ -70,37 +100,45 @@ export function InvoiceMatchingPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <header className="flex items-center justify-between">
+    <div className="space-y-6 pb-20">
+      <header className="px-1 flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur z-20 py-4 -mx-4 px-4 border-b border-border">
+        <Link to="/invoices">
+          <Button variant="ghost" size="icon" className="rounded-full">
+             <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Matching</h1>
-          <p className="text-sm text-gray-600">
-            Ordne Rechnungspositionen den Produkten zu.
+          <h1 className="text-xl font-bold text-foreground">Matching</h1>
+          <p className="text-xs text-muted-foreground">
+            {items?.length || 0} Positionen zuordnen
           </p>
         </div>
-        <Link to={`/invoices/${invoiceId}`}>
-          <Button variant="secondary">Zurueck</Button>
-        </Link>
       </header>
 
-      <Card title="Offene Positionen">
+      <div className="space-y-4">
         {items && items.length > 0 ? (
-          <div className="space-y-4">
-            {items.map((item) => (
-              <MatchRow
-                key={item.id}
-                invoiceId={invoiceId}
-                itemId={item.id}
-                productName={item.product_name}
-                defaultMatch={item.matched_product_id}
-                options={options}
-              />
-            ))}
-          </div>
+          items.map((item) => (
+            <MatchRow
+              key={item.id}
+              invoiceId={invoiceId}
+              itemId={item.id}
+              productName={item.product_name}
+              defaultMatch={item.matched_product_id}
+              options={options}
+            />
+          ))
         ) : (
-          <p className="text-sm text-gray-500">Keine Positionen gefunden.</p>
+          <EmptyState
+             title="Alles erledigt"
+             description="Keine offenen Positionen zum Matchen."
+             action={
+               <Link to="/invoices">
+                 <Button>Zurück zur Übersicht</Button>
+               </Link>
+             }
+          />
         )}
-      </Card>
+      </div>
     </div>
   )
 }
