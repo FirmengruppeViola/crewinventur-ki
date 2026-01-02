@@ -12,10 +12,13 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In Produktion spezifisch setzen
+    allow_origins=[
+        "http://localhost:5173",
+        "https://crewinventur-ki.pages.dev",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Routes
