@@ -4,10 +4,12 @@ import {
   Receipt,
   Calendar,
   ArrowRight,
+  ArrowLeft,
   Brain,
   Zap,
   CheckCircle2,
-  X
+  Square,
+  CheckSquare,
 } from 'lucide-react'
 import { Button } from './Button'
 
@@ -61,20 +63,20 @@ const slides: Slide[] = [
 ]
 
 type InvoiceOnboardingProps = {
-  onComplete: () => void
-  onSkip: () => void
+  onComplete: (dontShowAgain: boolean) => void
 }
 
-export function InvoiceOnboarding({ onComplete, onSkip }: InvoiceOnboardingProps) {
+export function InvoiceOnboarding({ onComplete }: InvoiceOnboardingProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState<'next' | 'prev'>('next')
+  const [dontShowAgain, setDontShowAgain] = useState(false)
 
   const slide = slides[currentSlide]
   const isLast = currentSlide === slides.length - 1
 
   const nextSlide = () => {
     if (isLast) {
-      onComplete()
+      onComplete(dontShowAgain)
     } else {
       setDirection('next')
       setCurrentSlide((prev) => prev + 1)
@@ -89,45 +91,37 @@ export function InvoiceOnboarding({ onComplete, onSkip }: InvoiceOnboardingProps
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/98 backdrop-blur-xl">
       {/* Background Decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl animate-float" />
       </div>
 
-      {/* Close Button */}
-      <button
-        onClick={onSkip}
-        className="absolute top-6 right-6 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
-      >
-        <X className="h-5 w-5 text-muted-foreground" />
-      </button>
-
-      {/* Content */}
-      <div className="relative w-full max-w-md mx-4">
+      {/* Content - positioned higher with safe bottom margin */}
+      <div className="relative w-full max-w-md mx-4 mb-32">
         {/* Slide Content */}
         <div
           key={currentSlide}
-          className={`text-center space-y-8 ${
+          className={`text-center space-y-6 ${
             direction === 'next' ? 'animate-slide-in-right' : 'animate-slide-in-left'
           }`}
         >
           {/* Icon */}
           <div className="flex justify-center">
-            <div className={`relative p-6 rounded-3xl ${slide.iconBg} ${slide.animation}`}>
-              <slide.icon className={`h-16 w-16 ${slide.iconColor}`} />
+            <div className={`relative p-5 rounded-3xl ${slide.iconBg} ${slide.animation}`}>
+              <slide.icon className={`h-14 w-14 ${slide.iconColor}`} />
               {/* Sparkle decorations */}
-              <Sparkles className="absolute -top-2 -right-2 h-6 w-6 text-yellow-400 animate-ping-slow" />
+              <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-yellow-400 animate-ping-slow" />
             </div>
           </div>
 
           {/* Text */}
-          <div className="space-y-4">
-            <h2 className="text-3xl font-bold text-foreground">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-foreground">
               {slide.title}
             </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-base text-muted-foreground leading-relaxed px-2">
               {slide.subtitle}
             </p>
             {slide.highlight && (
@@ -139,7 +133,7 @@ export function InvoiceOnboarding({ onComplete, onSkip }: InvoiceOnboardingProps
         </div>
 
         {/* Progress Dots */}
-        <div className="flex justify-center gap-2 mt-12">
+        <div className="flex justify-center gap-2 mt-8">
           {slides.map((_, index) => (
             <button
               key={index}
@@ -157,24 +151,24 @@ export function InvoiceOnboarding({ onComplete, onSkip }: InvoiceOnboardingProps
         </div>
 
         {/* Navigation */}
-        <div className="flex gap-3 mt-8">
+        <div className="flex gap-3 mt-6">
           {currentSlide > 0 && (
             <Button
               variant="outline"
               onClick={prevSlide}
-              className="flex-1 h-14 text-base"
+              className="h-12 px-4"
             >
-              Zurück
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
           <Button
             onClick={nextSlide}
-            className={`h-14 text-base ${currentSlide === 0 ? 'flex-1' : 'flex-[2]'}`}
+            className="flex-1 h-12 text-base"
           >
             {isLast ? (
               <>
                 <CheckCircle2 className="mr-2 h-5 w-5" />
-                Verstanden, los geht's!
+                Alles klar!
               </>
             ) : (
               <>
@@ -185,13 +179,22 @@ export function InvoiceOnboarding({ onComplete, onSkip }: InvoiceOnboardingProps
           </Button>
         </div>
 
-        {/* Skip Link */}
-        <button
-          onClick={onSkip}
-          className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Überspringen
-        </button>
+        {/* Don't show again checkbox - only on last slide */}
+        {isLast && (
+          <button
+            onClick={() => setDontShowAgain(!dontShowAgain)}
+            className="flex items-center justify-center gap-3 w-full mt-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            {dontShowAgain ? (
+              <CheckSquare className="h-5 w-5 text-primary" />
+            ) : (
+              <Square className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className={`text-sm ${dontShowAgain ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Nicht mehr anzeigen, ich weiß Bescheid
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )

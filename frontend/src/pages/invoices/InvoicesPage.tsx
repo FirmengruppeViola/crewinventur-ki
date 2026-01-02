@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent, useState, useEffect } from 'react'
+import { useRef, type ChangeEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -10,7 +10,7 @@ import { InvoiceOnboarding } from '../../components/ui/InvoiceOnboarding'
 import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
 
-const ONBOARDING_KEY = 'crewinventur-invoice-onboarding-seen'
+const ONBOARDING_DISMISSED_KEY = 'crewinventur-invoice-onboarding-dismissed'
 
 export function InvoicesPage() {
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -18,22 +18,19 @@ export function InvoicesPage() {
   const { data: invoices, isLoading } = useInvoices()
   const uploadInvoice = useUploadInvoice()
 
-  // Onboarding State
-  const [showOnboarding, setShowOnboarding] = useState(false)
+  // Onboarding State - show by default unless explicitly dismissed
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    const dismissed = localStorage.getItem(ONBOARDING_DISMISSED_KEY)
+    return dismissed !== 'true'
+  })
 
   // Sheet State
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
 
-  // Show onboarding on first visit
-  useEffect(() => {
-    const seen = localStorage.getItem(ONBOARDING_KEY)
-    if (!seen) {
-      setShowOnboarding(true)
+  const handleOnboardingComplete = (dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true')
     }
-  }, [])
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem(ONBOARDING_KEY, 'true')
     setShowOnboarding(false)
   }
 
@@ -69,10 +66,7 @@ export function InvoicesPage() {
     <>
       {/* Onboarding Modal */}
       {showOnboarding && (
-        <InvoiceOnboarding
-          onComplete={handleOnboardingComplete}
-          onSkip={handleOnboardingComplete}
-        />
+        <InvoiceOnboarding onComplete={handleOnboardingComplete} />
       )}
 
       <div className="space-y-6 pb-40">
