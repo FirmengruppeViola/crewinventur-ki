@@ -23,14 +23,10 @@ import {
   useCompleteInventorySession,
   useInventorySession,
   useSessionItems,
-  useUpdateSessionItem,
-  useDeleteSessionItem,
 } from '../../features/inventory/useInventory'
 import { useUiStore } from '../../stores/uiStore'
 
 type ItemRowProps = {
-  itemId: string
-  sessionId: string
   productName: string
   quantity: number
   fullQuantity?: number | null
@@ -41,8 +37,6 @@ type ItemRowProps = {
 }
 
 function ItemRow({
-  itemId,
-  sessionId,
   productName,
   quantity,
   fullQuantity,
@@ -51,17 +45,6 @@ function ItemRow({
   totalPrice,
   onDelete,
 }: ItemRowProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [value, setValue] = useState(quantity.toString())
-  const updateItem = useUpdateSessionItem(itemId, sessionId)
-
-  const handleUpdate = async () => {
-    const numeric = Number(value)
-    if (Number.isNaN(numeric) || numeric <= 0) return
-    await updateItem.mutateAsync({ quantity: numeric })
-    setIsEditing(false)
-  }
-
   const displayQty = fullQuantity !== null && fullQuantity !== undefined
     ? partialQuantity
       ? `${fullQuantity} + ${(partialQuantity * 100).toFixed(0)}%`
@@ -167,12 +150,6 @@ export function ActiveSessionPage() {
     }
   }
 
-  const handleDeleteItem = async (itemId: string) => {
-    // We need to use the hook properly here
-    const deleteItem = useDeleteSessionItem(itemId, sessionId)
-    await deleteItem.mutateAsync()
-  }
-
   if (isLoading || !session) {
     return <Loading fullScreen />
   }
@@ -216,8 +193,6 @@ export function ActiveSessionPage() {
               return (
                 <ItemRow
                   key={item.id}
-                  itemId={item.id}
-                  sessionId={sessionId}
                   productName={product?.name || 'Unbekannt'}
                   quantity={item.quantity}
                   fullQuantity={(item as any).full_quantity}

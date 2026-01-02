@@ -1,8 +1,8 @@
 import csv
 from io import StringIO
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import get_current_user
 from app.core.config import settings
@@ -17,6 +17,24 @@ class SendEmailRequest(BaseModel):
     email: EmailStr
     subject: str | None = None
     message: str | None = None
+
+
+class MissingPriceItem(BaseModel):
+    item_id: str
+    product_id: str
+    product_name: str
+    product_brand: str | None = None
+    quantity: float
+    unit_price: float | None = None
+
+
+class MissingPricesResponse(BaseModel):
+    count: int
+    items: list[MissingPriceItem]
+
+
+class UpdateItemPriceRequest(BaseModel):
+    unit_price: float = Field(..., gt=0)
 
 
 def _load_session_data(supabase, session_id: str, user_id: str):
@@ -260,6 +278,165 @@ async def send_session_email(
         )
 
     return {"message": "Email erfolgreich gesendet"}
+
+
+def _get_missing_price_items(supabase, session_id: str, user_id: str) -> list[dict]:
+    """Get all items with missing or zero price from a session."""
+    # Verify session ownership
+    session_resp = (
+        supabase.table("inventory_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not session_resp.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    # Get items with no price or zero price
+    items_resp = (
+        supabase.table("inventory_items")
+        .select("id, product_id, quantity, unit_price")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    items = items_resp.data or []
+
+    # Filter items with missing price
+    missing_items = [
+        item for item in items
+        if item.get("unit_price") is None or item.get("unit_price") == 0
+    ]
+
+    if not missing_items:
+        return []
+
+    # Get product details
+    product_ids = [item["product_id"] for item in missing_items]
+    products_resp = (
+        supabase.table("products")
+        .select("id, name, brand")
+        .in_("id", product_ids)
+        .execute()
+    )
+    product_map = {p["id"]: p for p in products_resp.data or []}
+
+    result = []
+    for item in missing_items:
+        product = product_map.get(item["product_id"], {})
+        result.append({
+            "item_id": item["id"],
+            "product_id": item["product_id"],
+            "product_name": product.get("name", "Unbekannt"),
+            "product_brand": product.get("brand"),
+            "quantity": item.get("quantity") or 0,
+            "unit_price": item.get("unit_price"),
+        })
+
+    return result
+
+
+@router.get("/export/session/{session_id}/missing-prices", response_model=MissingPricesResponse)
+def get_missing_prices(session_id: str, current_user=Depends(get_current_user)):
+    """
+    Get all items in a session that have no price set.
+    Used to validate before export and show price review slideshow.
+    """
+    supabase = get_supabase()
+    missing_items = _get_missing_price_items(supabase, session_id, current_user.id)
+    return MissingPricesResponse(count=len(missing_items), items=missing_items)
+
+
+@router.put("/export/session/{session_id}/items/{item_id}/price")
+def update_item_price(
+    session_id: str,
+    item_id: str,
+    payload: UpdateItemPriceRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Update the price of a single inventory item.
+    Used from the price review slideshow.
+    """
+    supabase = get_supabase()
+
+    # Verify session ownership
+    session_resp = (
+        supabase.table("inventory_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not session_resp.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    # Get the item
+    item_resp = (
+        supabase.table("inventory_items")
+        .select("id, quantity")
+        .eq("id", item_id)
+        .eq("session_id", session_id)
+        .execute()
+    )
+    if not item_resp.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+
+    item = item_resp.data[0]
+    quantity = item.get("quantity") or 1
+    total_price = payload.unit_price * quantity
+
+    # Update the item
+    updated = (
+        supabase.table("inventory_items")
+        .update({
+            "unit_price": payload.unit_price,
+            "total_price": total_price,
+        })
+        .eq("id", item_id)
+        .execute()
+    )
+
+    # Recalculate session totals
+    all_items = (
+        supabase.table("inventory_items")
+        .select("total_price")
+        .eq("session_id", session_id)
+        .execute()
+    ).data or []
+    new_total = sum(float(i.get("total_price") or 0) for i in all_items)
+
+    supabase.table("inventory_sessions").update({
+        "total_value": new_total,
+    }).eq("id", session_id).execute()
+
+    return {"message": "Price updated", "item_id": item_id, "new_total": new_total}
+
+
+@router.get("/export/session/{session_id}/validate")
+def validate_session_for_export(
+    session_id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Validate if session can be exported (all items have prices).
+    Returns validation status and missing items if any.
+    """
+    supabase = get_supabase()
+    missing_items = _get_missing_price_items(supabase, session_id, current_user.id)
+
+    if missing_items:
+        return {
+            "valid": False,
+            "message": f"{len(missing_items)} Produkte ohne Preis",
+            "missing_count": len(missing_items),
+        }
+
+    return {
+        "valid": True,
+        "message": "Export bereit",
+        "missing_count": 0,
+    }
 
 
 @router.get("/export/bundle/{bundle_id}/pdf")

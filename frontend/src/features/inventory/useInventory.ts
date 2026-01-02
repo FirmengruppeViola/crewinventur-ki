@@ -298,3 +298,75 @@ export function useDeleteInventoryBundle() {
     },
   })
 }
+
+// === Price Validation Hooks ===
+
+export type MissingPriceItem = {
+  item_id: string
+  product_id: string
+  product_name: string
+  product_brand: string | null
+  quantity: number
+  unit_price: number | null
+}
+
+export type MissingPricesResponse = {
+  count: number
+  items: MissingPriceItem[]
+}
+
+export type ExportValidation = {
+  valid: boolean
+  message: string
+  missing_count: number
+}
+
+export function useMissingPrices(sessionId?: string) {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['export', 'missing-prices', sessionId],
+    queryFn: () =>
+      apiRequest<MissingPricesResponse>(
+        `/api/v1/export/session/${sessionId}/missing-prices`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && sessionId),
+  })
+}
+
+export function useExportValidation(sessionId?: string) {
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useQuery({
+    queryKey: ['export', 'validate', sessionId],
+    queryFn: () =>
+      apiRequest<ExportValidation>(
+        `/api/v1/export/session/${sessionId}/validate`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && sessionId),
+  })
+}
+
+export function useUpdateItemPrice(sessionId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: ({ itemId, unitPrice }: { itemId: string; unitPrice: number }) =>
+      apiRequest<{ message: string; item_id: string; new_total: number }>(
+        `/api/v1/export/session/${sessionId}/items/${itemId}/price`,
+        { method: 'PUT', body: JSON.stringify({ unit_price: unitPrice }) },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['export', 'missing-prices', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['export', 'validate', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'items', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'sessions', sessionId] })
+    },
+  })
+}

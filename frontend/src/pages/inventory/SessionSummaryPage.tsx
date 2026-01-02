@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Loading } from '../../components/ui/Loading'
@@ -8,7 +9,11 @@ import { Modal } from '../../components/ui/Modal'
 import { Textarea } from '../../components/ui/Textarea'
 import { useLocation as useLocationData } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
-import { useInventorySession, useSessionItems } from '../../features/inventory/useInventory'
+import {
+  useInventorySession,
+  useSessionItems,
+  useExportValidation,
+} from '../../features/inventory/useInventory'
 import { useAuth } from '../../features/auth/useAuth'
 import { apiRequest, API_BASE_URL } from '../../lib/api'
 import { useUiStore } from '../../stores/uiStore'
@@ -16,11 +21,13 @@ import { useUiStore } from '../../stores/uiStore'
 export function SessionSummaryPage() {
   const { id } = useParams()
   const sessionId = id ?? ''
+  const navigate = useNavigate()
   const { session: authSession } = useAuth()
   const addToast = useUiStore((state) => state.addToast)
   const { data: session, isLoading } = useInventorySession(sessionId)
   const { data: items } = useSessionItems(sessionId)
   const { data: products } = useProducts()
+  const { data: validation } = useExportValidation(sessionId)
 
   const location = useLocationData(session?.location_id)
   const productMap = new Map(products?.map((product) => [product.id, product]) ?? [])
@@ -34,7 +41,14 @@ export function SessionSummaryPage() {
     return <Loading fullScreen />
   }
 
+  const hasMissingPrices = validation && !validation.valid
+
   const downloadFile = async (format: 'pdf' | 'csv' | 'csv-summary') => {
+    // Warn about missing prices but allow download
+    if (hasMissingPrices) {
+      addToast(`Warnung: ${validation.missing_count} Produkte ohne Preis`, 'info')
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/api/v1/export/session/${sessionId}/${format}`,
       {
@@ -112,9 +126,35 @@ export function SessionSummaryPage() {
         </Link>
       </header>
 
+      {/* Missing Prices Warning */}
+      {hasMissingPrices && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-start gap-4 p-4">
+            <div className="p-2 rounded-xl bg-amber-500/20">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">
+                {validation.missing_count} Produkte ohne Preis
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Vor dem Export sollten alle Preise eingetragen werden.
+              </p>
+              <button
+                onClick={() => navigate(`/inventory/sessions/${sessionId}/price-review`)}
+                className="mt-3 flex items-center gap-2 text-sm font-medium text-amber-500 hover:text-amber-400 transition-colors"
+              >
+                Preise jetzt nachtragen
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card title="Gesamt">
         <p className="text-sm text-muted-foreground">
-          Items: <span className="text-foreground font-medium">{session.total_items}</span> · 
+          Items: <span className="text-foreground font-medium">{session.total_items}</span> ·
           Wert: <span className="text-emerald-500 font-medium">{Number(session.total_value).toFixed(2)} EUR</span>
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row flex-wrap">

@@ -18,6 +18,7 @@ import { ActiveSessionPage } from './pages/inventory/ActiveSessionPage'
 import { InventoryScanPage } from './pages/inventory/InventoryScanPage'
 import { ShelfScanPage } from './pages/inventory/ShelfScanPage'
 import { SessionSummaryPage } from './pages/inventory/SessionSummaryPage'
+import { PriceReviewPage } from './pages/inventory/PriceReviewPage'
 import { BundlesPage } from './pages/inventory/BundlesPage'
 import { BundleSummaryPage } from './pages/inventory/BundleSummaryPage'
 import { InvoicesPage } from './pages/invoices/InvoicesPage'
@@ -62,6 +63,10 @@ function App() {
               <Route
                 path="/inventory/sessions/:id/summary"
                 element={<SessionSummaryPage />}
+              />
+              <Route
+                path="/inventory/sessions/:id/price-review"
+                element={<PriceReviewPage />}
               />
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
