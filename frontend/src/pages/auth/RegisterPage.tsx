@@ -64,7 +64,7 @@ export function RegisterPage() {
 
       <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
-          <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+          <Link viewTransition to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
             CrewInventur
           </Link>
           <h1 className="text-2xl font-bold text-foreground">Account erstellen</h1>
@@ -146,7 +146,7 @@ export function RegisterPage() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Schon ein Konto?{' '}
-            <Link to="/login" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
+            <Link viewTransition to="/login" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
               Einloggen
             </Link>
           </div>
@@ -155,3 +155,4 @@ export function RegisterPage() {
     </div>
   )
 }
+

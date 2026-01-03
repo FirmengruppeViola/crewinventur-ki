@@ -150,7 +150,7 @@ export function InvoiceMatchingPage() {
   return (
     <div className="space-y-6 pb-20">
       <header className="px-1 flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur z-20 py-4 -mx-4 px-4 border-b border-border">
-        <Link to="/invoices">
+        <Link viewTransition to="/invoices">
           <Button variant="ghost" size="icon" className="rounded-full">
              <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -219,7 +219,7 @@ export function InvoiceMatchingPage() {
              title="Alles erledigt"
              description="Keine offenen Positionen zum Matchen."
              action={
-               <Link to="/invoices">
+               <Link viewTransition to="/invoices">
                  <Button>Zurueck zur Uebersicht</Button>
                </Link>
              }
@@ -229,3 +229,4 @@ export function InvoiceMatchingPage() {
     </div>
   )
 }
+

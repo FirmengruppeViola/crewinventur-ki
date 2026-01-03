@@ -29,12 +29,12 @@ export function LandingPage() {
           </p>
           
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Link to="/register">
+            <Link viewTransition to="/register">
               <Button size="lg" className="h-14 px-8 text-lg rounded-2xl shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all">
                 Jetzt starten <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link to="/login">
+            <Link viewTransition to="/login">
               <Button size="lg" variant="secondary" className="h-14 px-8 text-lg rounded-2xl bg-card hover:bg-accent border border-white/5">
                 Einloggen
               </Button>
@@ -76,9 +76,9 @@ export function LandingPage() {
         
         <footer className="mt-10 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground space-y-3">
           <div className="flex justify-center gap-6">
-            <Link to="/terms" className="hover:text-foreground transition-colors">AGB</Link>
-            <Link to="/privacy" className="hover:text-foreground transition-colors">Datenschutz</Link>
-            <Link to="/imprint" className="hover:text-foreground transition-colors">Impressum</Link>
+            <Link viewTransition to="/terms" className="hover:text-foreground transition-colors">AGB</Link>
+            <Link viewTransition to="/privacy" className="hover:text-foreground transition-colors">Datenschutz</Link>
+            <Link viewTransition to="/imprint" className="hover:text-foreground transition-colors">Impressum</Link>
           </div>
           <p>&copy; 2026 CrewInventur. KI-gestützte Inventur für die Gastronomie.</p>
         </footer>
@@ -86,3 +86,4 @@ export function LandingPage() {
     </div>
   )
 }
+

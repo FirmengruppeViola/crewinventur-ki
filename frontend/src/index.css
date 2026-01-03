@@ -130,3 +130,30 @@
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* View Transitions API - page-level crossfade */
+@supports (view-transition-name: root) {
+  ::view-transition-old(root) {
+    animation: view-fade-out 120ms ease-out both;
+  }
+  ::view-transition-new(root) {
+    animation: view-fade-in 160ms ease-out both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+@keyframes view-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes view-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

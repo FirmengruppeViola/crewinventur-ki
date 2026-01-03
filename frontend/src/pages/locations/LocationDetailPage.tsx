@@ -1,4 +1,5 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { DetailPageSkeleton } from '../../components/ui/Skeleton'
@@ -7,7 +8,7 @@ import { useUiStore } from '../../stores/uiStore'
 
 export function LocationDetailPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
 
   const { data, isLoading, error } = useLocation(id)
@@ -56,7 +57,7 @@ export function LocationDetailPage() {
           <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
           <p className="text-sm text-gray-600">{data.description || 'Keine Beschreibung'}</p>
         </div>
-        <Link to="/locations">
+        <Link viewTransition to="/locations">
           <Button variant="secondary">Zurueck</Button>
         </Link>
       </header>
@@ -66,7 +67,7 @@ export function LocationDetailPage() {
       </Card>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Link to={`/locations/${data.id}/edit`}>
+        <Link viewTransition to={`/locations/${data.id}/edit`}>
           <Button>Bearbeiten</Button>
         </Link>
         <Button
@@ -80,3 +81,4 @@ export function LocationDetailPage() {
     </div>
   )
 }
+

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import {
   ArrowLeft,
   Plus,
@@ -173,7 +173,7 @@ function TeamMemberCard({
 }
 
 export function TeamPage() {
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
 
   const { data: members, isLoading: loadingMembers } = useTeamMembers()

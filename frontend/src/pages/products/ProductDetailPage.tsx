@@ -1,4 +1,5 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { DetailPageSkeleton } from '../../components/ui/Skeleton'
@@ -7,7 +8,7 @@ import { useUiStore } from '../../stores/uiStore'
 
 export function ProductDetailPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const { data, isLoading, error } = useProduct(id)
   const deleteProduct = useDeleteProduct(id ?? '')
@@ -57,7 +58,7 @@ export function ProductDetailPage() {
             {[data.brand, data.size].filter(Boolean).join(' · ') || 'Ohne Details'}
           </p>
         </div>
-        <Link to="/products">
+        <Link viewTransition to="/products">
           <Button variant="secondary">Zurueck</Button>
         </Link>
       </header>
@@ -73,7 +74,7 @@ export function ProductDetailPage() {
       </Card>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Link to={`/products/${data.id}/edit`}>
+        <Link viewTransition to={`/products/${data.id}/edit`}>
           <Button>Bearbeiten</Button>
         </Link>
         <Button
@@ -87,3 +88,4 @@ export function ProductDetailPage() {
     </div>
   )
 }
+

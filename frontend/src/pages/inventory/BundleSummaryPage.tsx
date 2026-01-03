@@ -46,7 +46,7 @@ export function BundleSummaryPage() {
             Sessions: {bundle.total_sessions} · Items: {bundle.total_items}
           </p>
         </div>
-        <Link to="/inventory/bundles">
+        <Link viewTransition to="/inventory/bundles">
           <Button variant="secondary">Zurück</Button>
         </Link>
       </header>
@@ -82,3 +82,4 @@ export function BundleSummaryPage() {
     </div>
   )
 }
+

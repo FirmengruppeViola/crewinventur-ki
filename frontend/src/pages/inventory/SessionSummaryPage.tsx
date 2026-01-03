@@ -1,5 +1,6 @@
 import { type FormEvent, useState, useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { AlertTriangle, ChevronRight, Send } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -21,7 +22,7 @@ import { useUiStore } from '../../stores/uiStore'
 export function SessionSummaryPage() {
   const { id } = useParams()
   const sessionId = id ?? ''
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const { session: authSession } = useAuth()
   const addToast = useUiStore((state) => state.addToast)
   const { data: session, isLoading } = useInventorySession(sessionId)
@@ -140,7 +141,7 @@ export function SessionSummaryPage() {
             Abgeschlossen am {session.completed_at || '-'}
           </p>
         </div>
-        <Link to="/inventory">
+        <Link viewTransition to="/inventory">
           <Button variant="secondary">Zurück</Button>
         </Link>
       </header>
@@ -263,3 +264,4 @@ export function SessionSummaryPage() {
     </div>
   )
 }
+

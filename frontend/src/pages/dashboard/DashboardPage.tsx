@@ -21,7 +21,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
         {/* Hero Card - Start Inventory */}
-        <Link 
+        <Link viewTransition 
           to="/inventory" 
           className="group col-span-2 row-span-2 relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/80 to-indigo-600 p-6 text-white shadow-2xl transition-transform hover:scale-[1.02] active:scale-95"
         >
@@ -39,7 +39,7 @@ export function DashboardPage() {
         </Link>
 
         {/* Locations Stat - Clickable */}
-        <Link to="/locations" className="col-span-1">
+        <Link viewTransition to="/locations" className="col-span-1">
           <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
             <div className="flex items-start justify-between">
               <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
@@ -55,7 +55,7 @@ export function DashboardPage() {
         </Link>
 
         {/* Products Stat - Clickable */}
-        <Link to="/products" className="col-span-1">
+        <Link viewTransition to="/products" className="col-span-1">
           <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
             <div className="flex items-start justify-between">
               <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
@@ -91,7 +91,7 @@ export function DashboardPage() {
              )}
           </div>
           
-          <Link to="/inventory/sessions" className="mt-4 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <Link viewTransition to="/inventory/sessions" className="mt-4 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             Alle anzeigen <ArrowRight className="h-3 w-3" />
           </Link>
         </Card>
@@ -100,3 +100,4 @@ export function DashboardPage() {
     </div>
   )
 }
+

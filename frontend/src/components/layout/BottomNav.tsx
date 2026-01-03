@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Camera, FileText, Home, MapPin, Package } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
@@ -7,6 +7,7 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { Button } from '../ui/Button'
 import { Loading } from '../ui/Loading'
 import { useInventorySessions } from '../../features/inventory/useInventory'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 
 const navLeftItems = [
   { label: 'Home', to: '/dashboard', icon: Home },
@@ -20,7 +21,7 @@ const navRightItems = [
 
 export function BottomNav() {
   const location = useLocation()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const { prefetchDashboard, prefetchLocations, prefetchInventory } = usePrefetch()
   const { data: sessions, isLoading: loadingSessions } = useInventorySessions()
   const [showScanSheet, setShowScanSheet] = useState(false)
@@ -86,7 +87,7 @@ export function BottomNav() {
               const prefetchFn = getPrefetchFn(item.to)
 
               return (
-                <Link
+                <Link viewTransition
                   key={item.to}
                   to={item.to}
                   onMouseEnter={prefetchFn}
@@ -133,7 +134,7 @@ export function BottomNav() {
               const prefetchFn = getPrefetchFn(item.to)
 
               return (
-                <Link
+                <Link viewTransition
                   key={item.to}
                   to={item.to}
                   onMouseEnter={prefetchFn}
@@ -236,3 +237,4 @@ export function BottomNav() {
     </>
   )
 }
+

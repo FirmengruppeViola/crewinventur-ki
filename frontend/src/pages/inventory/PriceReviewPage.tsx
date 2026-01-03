@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ChevronLeft,
@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { useDelayedFlag } from '../../hooks/useDelayedFlag'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import {
   useMissingPrices,
   useUpdateItemPrice,
@@ -21,7 +22,7 @@ import { useUiStore } from '../../stores/uiStore'
 
 export function PriceReviewPage() {
   const { id: sessionId } = useParams<{ id: string }>()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
 
   const { data: missingPrices, isLoading } = useMissingPrices(sessionId)

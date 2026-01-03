@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -34,7 +35,7 @@ type PrefillState = {
 
 export function ProductFormPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const location = useLocation()
   const addToast = useUiStore((state) => state.addToast)
   const isEdit = Boolean(id)

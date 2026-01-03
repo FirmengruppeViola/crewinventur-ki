@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Loading } from '../../components/ui/Loading'
@@ -30,7 +30,7 @@ export function ProductScanPage() {
   const { scanBarcode, isSupported } = useBarcodeScanner()
   const createProduct = useCreateProduct()
   const addToast = useUiStore((state) => state.addToast)
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
 
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -24,7 +25,7 @@ type LocationFormValues = z.infer<typeof schema>
 
 export function LocationFormPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
 
   const isEdit = Boolean(id)

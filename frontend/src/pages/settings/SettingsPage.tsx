@@ -29,7 +29,7 @@ export function SettingsPage() {
         <section>
            <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account</h2>
            <div className="space-y-2">
-             <Link to="/settings/profile">
+             <Link viewTransition to="/settings/profile">
                <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                    <User className="h-6 w-6" />
@@ -45,7 +45,7 @@ export function SettingsPage() {
              </Link>
 
              {isOwner && (
-               <Link to="/settings/team">
+               <Link viewTransition to="/settings/team">
                  <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
                      <Users className="h-6 w-6" />
@@ -60,7 +60,7 @@ export function SettingsPage() {
              )}
 
              {isOwner && (
-               <Link to="/settings/billing">
+               <Link viewTransition to="/settings/billing">
                  <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
                      <CreditCard className="h-6 w-6" />
@@ -102,3 +102,4 @@ export function SettingsPage() {
     </div>
   )
 }
+

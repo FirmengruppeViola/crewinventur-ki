@@ -42,10 +42,10 @@ export function BundlesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/inventory">
+          <Link viewTransition to="/inventory">
             <Button variant="secondary">Zurück</Button>
           </Link>
-          <Link to="/inventory">
+          <Link viewTransition to="/inventory">
             <Button>Neues Bundle erstellen</Button>
           </Link>
         </div>
@@ -61,7 +61,7 @@ export function BundlesPage() {
                 Wert: <span className="text-emerald-500 font-medium">{Number(bundle.total_value).toFixed(2)} EUR</span>
               </p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <Link to={`/inventory/bundles/${bundle.id}`}>
+                <Link viewTransition to={`/inventory/bundles/${bundle.id}`}>
                   <Button variant="secondary" size="sm">Details</Button>
                 </Link>
                 <Button variant="outline" size="sm" onClick={() => downloadBundle(bundle.id)}>
@@ -76,7 +76,7 @@ export function BundlesPage() {
           title="Noch keine Bundles"
           description="Erstelle dein erstes Bundle aus abgeschlossenen Sessions."
           action={
-            <Link to="/inventory">
+            <Link viewTransition to="/inventory">
               <Button>Neues Bundle erstellen</Button>
             </Link>
           }
@@ -85,3 +85,4 @@ export function BundlesPage() {
     </div>
   )
 }
+

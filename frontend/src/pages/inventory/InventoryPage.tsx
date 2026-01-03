@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive, Sparkles, Camera, Edit3, FileText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -12,6 +12,7 @@ import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { useDelayedFlag } from '../../hooks/useDelayedFlag'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { useLocations } from '../../features/locations/useLocations'
 import {
   useCreateInventoryBundle,
@@ -61,7 +62,7 @@ const inventoryOnboardingSlides: OnboardingSlide[] = [
 ]
 
 export function InventoryPage() {
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const routeLocation = useLocation()
   const addToast = useUiStore((state) => state.addToast)
 
@@ -181,7 +182,7 @@ export function InventoryPage() {
            </p>
         </div>
         <div className="flex gap-2">
-           <Link to="/inventory/bundles">
+           <Link viewTransition to="/inventory/bundles">
               <Button variant="outline" size="icon" className="rounded-full h-12 w-12">
                  <Archive className="h-5 w-5" />
               </Button>
@@ -200,7 +201,7 @@ export function InventoryPage() {
         {activeSessions.length > 0 ? (
           <div className="grid gap-3">
             {activeSessions.map((session) => (
-              <Link key={session.id} to={`/inventory/sessions/${session.id}`}>
+              <Link viewTransition key={session.id} to={`/inventory/sessions/${session.id}`}>
                 <Card className="group relative overflow-hidden border-l-4 border-l-primary p-4 hover:bg-accent/50 transition-all">
                   <div className="flex items-center justify-between">
                      <div>
@@ -379,7 +380,7 @@ export function InventoryPage() {
                </div>
             </div>
 
-            <Link to={`/inventory/sessions/${selectedCompletedSession?.id}/summary`}>
+            <Link viewTransition to={`/inventory/sessions/${selectedCompletedSession?.id}/summary`}>
                <Button className="w-full h-12">
                   <Package className="mr-2 h-5 w-5" /> Vollständigen Bericht öffnen
                </Button>
@@ -397,3 +398,4 @@ export function InventoryPage() {
     </div>
   )
 }
+

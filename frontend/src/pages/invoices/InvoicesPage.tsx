@@ -367,7 +367,7 @@ function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: any, isOpen
                 </Button>
              ) : null}
              
-             <Link to={`/invoices/${invoice.id}/match`} className="w-full">
+             <Link viewTransition to={`/invoices/${invoice.id}/match`} className="w-full">
                 <Button variant="secondary" className="w-full h-12">
                    Artikel Matching öffnen
                 </Button>
@@ -377,3 +377,4 @@ function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: any, isOpen
     </BottomSheet>
   )
 }
+

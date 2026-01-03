@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -18,7 +19,7 @@ type LoginFormValues = z.infer<typeof schema>
 
 export function LoginPage() {
   const { signIn } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -48,7 +49,7 @@ export function LoginPage() {
        
       <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
-          <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+          <Link viewTransition to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
             CrewInventur
           </Link>
           <h1 className="text-2xl font-bold text-foreground">Willkommen zurück</h1>
@@ -70,7 +71,7 @@ export function LoginPage() {
             <div className="space-y-1.5">
                <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-foreground">Passwort</label>
-                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                  <Link viewTransition to="/forgot-password" className="text-xs text-primary hover:underline">
                     Vergessen?
                   </Link>
                </div>
@@ -96,13 +97,13 @@ export function LoginPage() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Noch kein Konto?{' '}
-            <Link to="/register" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
+            <Link viewTransition to="/register" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
               Jetzt registrieren
             </Link>
           </div>
 
           <div className="mt-4 pt-4 border-t border-border text-center">
-            <Link
+            <Link viewTransition
               to="/accept-invite"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -114,3 +115,4 @@ export function LoginPage() {
     </div>
   )
 }
+

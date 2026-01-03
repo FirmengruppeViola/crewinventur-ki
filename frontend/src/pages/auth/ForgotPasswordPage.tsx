@@ -41,7 +41,7 @@ export function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md flex flex-col gap-8">
         <header className="text-center">
-          <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+          <Link viewTransition to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
             CrewInventur
           </Link>
           <h1 className="text-2xl font-bold text-foreground">
@@ -82,7 +82,7 @@ export function ForgotPasswordPage() {
           )}
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
+            <Link viewTransition to="/login" className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors">
               Zurück zum Login
             </Link>
           </div>
@@ -91,3 +91,4 @@ export function ForgotPasswordPage() {
     </div>
   )
 }
+

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { Ticket, ArrowRight } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -8,7 +9,7 @@ import { useUiStore } from '../../stores/uiStore'
 
 export function AcceptInvitePage() {
   const { user, acceptInvitation } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
 
   const [code, setCode] = useState('')
@@ -45,7 +46,7 @@ export function AcceptInvitePage() {
 
         <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
           <header className="text-center">
-            <Link
+            <Link viewTransition
               to="/"
               className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent"
             >
@@ -63,13 +64,13 @@ export function AcceptInvitePage() {
 
           <Card className="border-white/5 bg-card/50 backdrop-blur-sm shadow-xl">
             <div className="space-y-4">
-              <Link to="/login">
+              <Link viewTransition to="/login">
                 <Button className="w-full h-11">
                   Anmelden
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link to="/register">
+              <Link viewTransition to="/register">
                 <Button variant="secondary" className="w-full h-11">
                   Neues Konto erstellen
                 </Button>
@@ -91,7 +92,7 @@ export function AcceptInvitePage() {
 
       <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
-          <Link
+          <Link viewTransition
             to="/"
             className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent"
           >
@@ -137,7 +138,7 @@ export function AcceptInvitePage() {
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <Link
+            <Link viewTransition
               to="/dashboard"
               className="font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
             >
@@ -149,3 +150,4 @@ export function AcceptInvitePage() {
     </div>
   )
 }
+

@@ -41,7 +41,7 @@ export function InvoiceDetailPage() {
             Status: {invoice.status} · Items: {invoice.item_count}
           </p>
         </div>
-        <Link to="/invoices">
+        <Link viewTransition to="/invoices">
           <Button variant="secondary">Zurueck</Button>
         </Link>
       </header>
@@ -83,10 +83,11 @@ export function InvoiceDetailPage() {
         <Button onClick={handleProcess} loading={processInvoice.isPending}>
           Verarbeitung starten
         </Button>
-        <Link to={`/invoices/${invoiceId}/match`}>
+        <Link viewTransition to={`/invoices/${invoiceId}/match`}>
           <Button variant="secondary">Matching</Button>
         </Link>
       </div>
     </div>
   )
 }
+

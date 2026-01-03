@@ -176,7 +176,7 @@ type PrefetchLinkProps = LinkProps & {
 
 /**
  * Link component that prefetches data on hover/touch.
- * Use this instead of regular <Link> for smoother navigation.
+ * Use this instead of regular <Link viewTransition> for smoother navigation.
  */
 export const PrefetchLink = forwardRef<HTMLAnchorElement, PrefetchLinkProps>(
   function PrefetchLink({ prefetchFn, children, onMouseEnter, onTouchStart, ...props }, ref) {
@@ -191,7 +191,7 @@ export const PrefetchLink = forwardRef<HTMLAnchorElement, PrefetchLinkProps>(
     }
 
     return (
-      <Link
+      <Link viewTransition
         ref={ref}
         onMouseEnter={handleMouseEnter}
         onTouchStart={handleTouchStart}
@@ -248,3 +248,4 @@ export function preloadCriticalRoutes() {
     setTimeout(preload, 500)
   }
 }
+

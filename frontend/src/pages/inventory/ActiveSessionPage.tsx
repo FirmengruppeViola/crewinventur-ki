@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import {
   ArrowLeft,
   Package,
@@ -76,7 +77,7 @@ function ItemRow({
 
 export function ActiveSessionPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const sessionId = id ?? ''
 
@@ -154,7 +155,7 @@ export function ActiveSessionPage() {
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="flex items-center gap-4 px-4 py-4">
-          <Link
+          <Link viewTransition
             to="/inventory"
             className="p-2 -ml-2 rounded-xl hover:bg-accent transition-colors"
           >
@@ -286,3 +287,4 @@ export function ActiveSessionPage() {
     </div>
   )
 }
+

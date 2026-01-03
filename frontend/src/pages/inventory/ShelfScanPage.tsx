@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { useViewNavigate } from '../../hooks/useViewNavigate'
 import {
   Camera,
   Loader2,
@@ -29,7 +30,7 @@ type ScanState = 'idle' | 'capturing' | 'processing' | 'result' | 'error'
 
 export function ShelfScanPage() {
   const { id: sessionId } = useParams<{ id: string }>()
-  const navigate = useNavigate()
+  const navigate = useViewNavigate()
   const { takePhoto } = useCamera()
   const addToast = useUiStore((state) => state.addToast)
 
