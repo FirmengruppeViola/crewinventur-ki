@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
-import { Loading } from '../../components/ui/Loading'
+import { FormPageSkeleton } from '../../components/ui/Skeleton'
 import {
   useCreateProduct,
   useProduct,
@@ -112,7 +112,7 @@ export function ProductFormPage() {
   }
 
   if (isEdit && isLoading) {
-    return <Loading fullScreen />
+    return <FormPageSkeleton />
   }
 
   const categoryOptions = [

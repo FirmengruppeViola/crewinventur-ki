@@ -11,7 +11,8 @@ import {
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
+import { useDelayedFlag } from '../../hooks/useDelayedFlag'
 import {
   useMissingPrices,
   useUpdateItemPrice,
@@ -25,6 +26,8 @@ export function PriceReviewPage() {
 
   const { data: missingPrices, isLoading } = useMissingPrices(sessionId)
   const updatePrice = useUpdateItemPrice(sessionId || '')
+  const isInitialLoading = isLoading && !missingPrices
+  const showSkeleton = useDelayedFlag(isInitialLoading)
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [prices, setPrices] = useState<Map<string, string>>(new Map())
@@ -88,8 +91,14 @@ export function PriceReviewPage() {
     navigate(`/inventory/sessions/${sessionId}/summary`)
   }
 
-  if (isLoading) {
-    return <Loading fullScreen />
+  if (showSkeleton) {
+    return <ListPageSkeleton />
+  }
+  if (isInitialLoading) {
+    return null
+  }
+  if (!missingPrices) {
+    return null
   }
 
   if (!items.length) {

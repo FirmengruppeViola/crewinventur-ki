@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { useAuth } from '../../features/auth/useAuth'
 import {
   useInventoryBundle,
@@ -34,7 +34,7 @@ export function BundleSummaryPage() {
   }
 
   if (isLoading || !bundle) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   return (

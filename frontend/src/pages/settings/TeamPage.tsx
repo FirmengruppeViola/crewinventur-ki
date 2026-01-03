@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
@@ -260,7 +260,7 @@ export function TeamPage() {
   }
 
   if (loadingMembers) {
-    return <Loading fullScreen />
+    return <ListPageSkeleton />
   }
 
   return (

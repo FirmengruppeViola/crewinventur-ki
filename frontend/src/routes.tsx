@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, type RouteObject } from 'react-router-dom'
-import { PageSkeleton } from './components/ui/Skeleton'
 
 // Lazy load wrapper - creates a component that loads on demand
 function lazyLoad(
@@ -14,7 +13,7 @@ function lazyLoad(
 
   return function LazyWrapper() {
     return (
-      <Suspense fallback={<PageSkeleton />}>
+      <Suspense fallback={null}>
         <LazyComponent />
       </Suspense>
     )

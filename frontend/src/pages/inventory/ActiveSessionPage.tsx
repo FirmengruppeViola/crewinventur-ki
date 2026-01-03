@@ -2,19 +2,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
-  Camera,
-  Grid3X3,
   Package,
   Plus,
   Trash2,
   Check,
-  ChevronRight,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
-import { Loading } from '../../components/ui/Loading'
+import { SessionSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { useLocation as useLocationData } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
@@ -91,8 +88,6 @@ export function ActiveSessionPage() {
 
   const location = useLocationData(session?.location_id)
 
-  // Scan mode selector
-  const [showScanOptions, setShowScanOptions] = useState(false)
   // Manual add form
   const [showManualAdd, setShowManualAdd] = useState(false)
 
@@ -151,11 +146,11 @@ export function ActiveSessionPage() {
   }
 
   if (isLoading || !session) {
-    return <Loading fullScreen />
+    return <SessionSkeleton />
   }
 
   return (
-    <div className="min-h-screen bg-background pb-40">
+    <div className="bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="flex items-center gap-4 px-4 py-4">
@@ -216,7 +211,7 @@ export function ActiveSessionPage() {
             </div>
             <h3 className="text-lg font-semibold">Noch keine Produkte</h3>
             <p className="text-muted-foreground mt-1">
-              Tippe auf den Scan-Button um loszulegen
+              Tippe unten in der Navigation auf den Scan-Button
             </p>
           </div>
         )}
@@ -245,61 +240,6 @@ export function ActiveSessionPage() {
           </Card>
         )}
       </div>
-
-      {/* FAB - Scan Button */}
-      <div className="fixed bottom-28 right-4 z-50">
-        <button
-          onClick={() => setShowScanOptions(true)}
-          className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-transform"
-        >
-          <Camera className="h-7 w-7" />
-        </button>
-      </div>
-
-      {/* Scan Options Sheet */}
-      <BottomSheet isOpen={showScanOptions} onClose={() => setShowScanOptions(false)}>
-        <div className="space-y-4 pb-6">
-          <h2 className="text-xl font-bold">Scannen</h2>
-
-          <button
-            onClick={() => {
-              setShowScanOptions(false)
-              navigate(`/inventory/sessions/${sessionId}/scan`)
-            }}
-            className="flex items-center gap-4 w-full p-4 rounded-2xl bg-accent/50 hover:bg-accent transition-colors"
-          >
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Camera className="h-6 w-6 text-primary" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-semibold">Einzelscan</p>
-              <p className="text-sm text-muted-foreground">
-                Ein Produkt fotografieren und erfassen
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
-
-          <button
-            onClick={() => {
-              setShowScanOptions(false)
-              navigate(`/inventory/sessions/${sessionId}/shelf-scan`)
-            }}
-            className="flex items-center gap-4 w-full p-4 rounded-2xl bg-accent/50 hover:bg-accent transition-colors"
-          >
-            <div className="p-3 rounded-xl bg-violet-500/10">
-              <Grid3X3 className="h-6 w-6 text-violet-500" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-semibold">Regal-Scan</p>
-              <p className="text-sm text-muted-foreground">
-                Mehrere Produkte auf einmal erkennen
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </button>
-        </div>
-      </BottomSheet>
 
       {/* Manual Add Sheet */}
       <BottomSheet isOpen={showManualAdd} onClose={() => setShowManualAdd(false)}>

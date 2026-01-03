@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive, Sparkles, Camera, Edit3, FileText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -8,9 +8,10 @@ import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { Input } from '../../components/ui/Input'
 import { BottomSheet } from '../../components/ui/BottomSheet'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useOnboarding } from '../../hooks/useOnboarding'
+import { useDelayedFlag } from '../../hooks/useDelayedFlag'
 import { useLocations } from '../../features/locations/useLocations'
 import {
   useCreateInventoryBundle,
@@ -61,6 +62,7 @@ const inventoryOnboardingSlides: OnboardingSlide[] = [
 
 export function InventoryPage() {
   const navigate = useNavigate()
+  const routeLocation = useLocation()
   const addToast = useUiStore((state) => state.addToast)
 
   // Onboarding
@@ -77,10 +79,16 @@ export function InventoryPage() {
   const [bundleName, setBundleName] = useState('')
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([])
 
+  const openCreate = Boolean(
+    (routeLocation.state as { openCreate?: boolean } | null)?.openCreate
+  )
+
   const { data: locations } = useLocations()
   const { data: sessions, isLoading } = useInventorySessions()
   const createSession = useCreateInventorySession()
   const createBundle = useCreateInventoryBundle()
+  const isInitialLoading = isLoading && !sessions
+  const showSkeleton = useDelayedFlag(isInitialLoading)
 
   const locationOptions = [
     { label: 'Location wählen', value: '' },
@@ -95,8 +103,16 @@ export function InventoryPage() {
   }, [locations])
 
   // Split Sessions
-  const activeSessions = sessions?.filter((s) => s.status !== 'completed') ?? []
-  const completedSessions = sessions?.filter((s) => s.status === 'completed') ?? []
+  const sessionsList = sessions ?? []
+  const activeSessions = sessionsList.filter((s) => s.status !== 'completed')
+  const completedSessions = sessionsList.filter((s) => s.status === 'completed')
+  const canShowEmptyStates = !isInitialLoading
+
+  useEffect(() => {
+    if (!openCreate) return
+    setIsOpen(true)
+    navigate(routeLocation.pathname, { replace: true, state: {} })
+  }, [navigate, openCreate, routeLocation.pathname])
 
   const handleCreate = async () => {
     if (!locationId) {
@@ -151,8 +167,8 @@ export function InventoryPage() {
     }
   }
 
-  if (isLoading) {
-    return <Loading fullScreen />
+  if (showSkeleton) {
+    return <ListPageSkeleton />
   }
 
   return (
@@ -204,11 +220,11 @@ export function InventoryPage() {
               </Link>
             ))}
           </div>
-        ) : (
+        ) : canShowEmptyStates ? (
           <div className="rounded-xl border border-dashed border-border p-6 text-center">
             <p className="text-sm text-muted-foreground">Keine aktiven Zählungen.</p>
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* Completed Sessions Section */}
@@ -245,13 +261,13 @@ export function InventoryPage() {
                </Card>
             ))}
           </div>
-        ) : (
+        ) : canShowEmptyStates ? (
            <EmptyState
             title="Keine Historie"
             description="Sobald du eine Session abschließt, erscheint sie hier."
             action={null}
           />
-        )}
+        ) : null}
       </section>
 
       {/* New Session Modal */}

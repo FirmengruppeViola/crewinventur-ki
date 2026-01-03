@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { Capacitor } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../features/auth/useAuth'
 import { apiRequest } from './api'
@@ -238,7 +237,6 @@ export function preloadRouteChunk(path: string) {
  * Uses requestIdleCallback for non-blocking preload.
  */
 export function preloadCriticalRoutes() {
-  if (Capacitor.isNativePlatform()) return
   if (!shouldPrefetch()) return
   const preload = () => {
     Object.values(routeChunks).forEach((importFn) => importFn())

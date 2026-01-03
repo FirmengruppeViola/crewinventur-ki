@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { useInvoice, useInvoiceItems, useProcessInvoice } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -27,7 +27,7 @@ export function InvoiceDetailPage() {
   }
 
   if (isLoading || !invoice) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   return (

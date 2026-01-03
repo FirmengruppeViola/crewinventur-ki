@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { useDeleteLocation, useLocation } from '../../features/locations/useLocations'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -28,7 +28,7 @@ export function LocationDetailPage() {
   }
 
   if (isLoading) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   if (error) {

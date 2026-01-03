@@ -69,6 +69,7 @@ type BundleInput = {
 }
 
 export function useInventorySessions() {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
   return useQuery({
@@ -80,6 +81,11 @@ export function useInventorySessions() {
         token,
       ),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<InventorySession[]>([
+        'inventory',
+        'sessions',
+      ]),
   })
 }
 
@@ -322,6 +328,7 @@ export type ExportValidation = {
 }
 
 export function useMissingPrices(sessionId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
   return useQuery({
@@ -333,6 +340,14 @@ export function useMissingPrices(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<MissingPricesResponse>([
+            'export',
+            'missing-prices',
+            sessionId,
+          ])
+        : undefined,
   })
 }
 

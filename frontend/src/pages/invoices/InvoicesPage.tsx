@@ -1,16 +1,55 @@
 import { useRef, type ChangeEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle, FileStack, X } from 'lucide-react'
+import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle, FileStack, X, Brain, Receipt, Calendar, Zap } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
-import { InvoiceOnboarding } from '../../components/ui/InvoiceOnboarding'
+import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
 
 const ONBOARDING_DISMISSED_KEY = 'crewinventur-invoice-onboarding-dismissed'
+
+const invoiceOnboardingSlides: OnboardingSlide[] = [
+  {
+    icon: Brain,
+    iconColor: 'text-violet-400',
+    iconBg: 'bg-violet-500/20',
+    title: 'KI-Power',
+    subtitle: 'Unsere KI liest deine Rechnungen und extrahiert automatisch alle Preise.',
+    highlight: 'Nie wieder manuell Preise eingeben!',
+    animation: 'animate-float',
+  },
+  {
+    icon: Receipt,
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/20',
+    title: 'Welche Rechnungen?',
+    subtitle: 'Alle Lieferantenrechnungen von Produkten, die du inventarisieren willst.',
+    highlight: 'Getränke, Lebensmittel, Verbrauchsmaterial...',
+    animation: 'animate-pulse-slow',
+  },
+  {
+    icon: Calendar,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/20',
+    title: 'Wie viele?',
+    subtitle: 'Mindestens das letzte Quartal hochladen.',
+    highlight: '3 Monate = die meisten Produkte erfasst',
+    animation: 'animate-bounce-slow',
+  },
+  {
+    icon: Zap,
+    iconColor: 'text-blue-400',
+    iconBg: 'bg-blue-500/20',
+    title: 'Das Ergebnis',
+    subtitle: 'Beim Scannen kennt die App sofort den aktuellen Einkaufspreis.',
+    highlight: 'Inventurwert auf Knopfdruck!',
+    animation: 'animate-float',
+  },
+]
 
 export function InvoicesPage() {
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -109,14 +148,19 @@ export function InvoicesPage() {
   }
 
   if (isLoading) {
-    return <Loading fullScreen />
+    return <ListPageSkeleton />
   }
 
   return (
     <>
       {/* Onboarding Modal */}
       {showOnboarding && (
-        <InvoiceOnboarding onComplete={handleOnboardingComplete} />
+        <OnboardingSlides
+          slides={invoiceOnboardingSlides}
+          onComplete={handleOnboardingComplete}
+          finalButtonText="Alles klar!"
+          dontShowAgainLabel="Nicht mehr anzeigen, ich weiß Bescheid"
+        />
       )}
 
       <div className="space-y-6 pb-40">

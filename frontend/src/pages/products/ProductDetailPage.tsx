@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { useDeleteProduct, useProduct } from '../../features/products/useProducts'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -27,7 +27,7 @@ export function ProductDetailPage() {
   }
 
   if (isLoading) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   if (error) {

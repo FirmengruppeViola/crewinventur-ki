@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { Loading } from '../../components/ui/Loading'
+import { FormPageSkeleton } from '../../components/ui/Skeleton'
 import {
   useCreateLocation,
   useLocation,
@@ -92,7 +92,7 @@ export function LocationFormPage() {
   }
 
   if (isEdit && isLoading) {
-    return <Loading fullScreen />
+    return <FormPageSkeleton />
   }
 
   return (

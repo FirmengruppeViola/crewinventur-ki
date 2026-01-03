@@ -10,21 +10,18 @@ type PageTransitionProps = {
 const pageVariants = {
   initial: {
     opacity: 0,
-    y: 8,
   },
   enter: {
     opacity: 1,
-    y: 0,
     transition: {
-      duration: 0.15,
+      duration: 0.12,
       ease: 'easeOut' as const,
     },
   },
   exit: {
     opacity: 0,
-    y: -4,
     transition: {
-      duration: 0.1,
+      duration: 0.08,
       ease: 'easeIn' as const,
     },
   },

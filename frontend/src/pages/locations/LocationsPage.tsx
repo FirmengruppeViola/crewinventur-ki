@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MapPin, ChevronRight, Edit2, Trash2, X } from 'lucide-react'
+import { Plus, MapPin, ChevronRight, Trash2 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -8,10 +8,12 @@ import { Textarea } from '../../components/ui/Textarea'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { useLocations, useDeleteLocation, useUpdateLocation, useCreateLocation } from '../../features/locations/useLocations'
 import { useUiStore } from '../../stores/uiStore'
+import { useDelayedFlag } from '../../hooks/useDelayedFlag'
 
 export function LocationsPage() {
   const { data, isLoading, error } = useLocations()
   const addToast = useUiStore((state) => state.addToast)
+  const showSkeleton = useDelayedFlag(isLoading && !data)
   
   // State for Sheet
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
@@ -79,6 +81,22 @@ export function LocationsPage() {
     setIsEditMode(false)
   }
 
+  const handleCancelEdit = () => {
+    if (isCreating) {
+      handleClose()
+      return
+    }
+
+    if (selectedLocation) {
+      setFormData({
+        name: selectedLocation.name,
+        description: selectedLocation.description || '',
+      })
+    }
+
+    setIsEditMode(false)
+  }
+
   // Skeleton component for loading state
   const LocationSkeleton = () => (
     <div className="grid gap-4">
@@ -117,7 +135,7 @@ export function LocationsPage() {
         </div>
       ) : null}
 
-      {isLoading ? <LocationSkeleton /> : null}
+      {showSkeleton ? <LocationSkeleton /> : null}
 
       {!isLoading && data && data.length > 0 && (
         <div className="grid gap-4">
@@ -153,9 +171,9 @@ export function LocationsPage() {
       )}
 
       {/* Detail/Edit Sheet */}
-      <BottomSheet isOpen={isSheetOpen} onClose={handleClose}>
+      <BottomSheet isOpen={isSheetOpen} onClose={handleClose} placement="center">
         <div className="space-y-6 pb-6">
-          <header className="flex items-center justify-between border-b border-border pb-4">
+          <header className="border-b border-border pb-4">
              <div>
                 <h2 className="text-xl font-bold text-foreground">
                   {isCreating ? 'Neue Location' : selectedLocation?.name}
@@ -164,16 +182,6 @@ export function LocationsPage() {
                   <p className="text-xs text-muted-foreground">Status: Aktiv</p>
                 )}
              </div>
-             {!isCreating && !isEditMode && (
-               <Button size="sm" variant="ghost" onClick={() => setIsEditMode(true)}>
-                 <Edit2 className="h-4 w-4" />
-               </Button>
-             )}
-              {isEditMode && !isCreating && (
-               <Button size="sm" variant="ghost" onClick={() => setIsEditMode(false)}>
-                 <X className="h-4 w-4" />
-               </Button>
-             )}
           </header>
 
           {isEditMode ? (
@@ -190,12 +198,17 @@ export function LocationsPage() {
                 onChange={e => setFormData({...formData, description: e.target.value})}
                 placeholder="Optionale Notizen..."
               />
-              <div className="flex gap-3 pt-2">
-                <Button className="flex-1" onClick={handleSave}>Speichern</Button>
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex gap-3">
+                  <Button variant="secondary" className="flex-1" onClick={handleCancelEdit}>
+                    Abbrechen
+                  </Button>
+                  <Button className="flex-1" onClick={handleSave}>Speichern</Button>
+                </div>
                 {!isCreating && (
-                   <Button variant="danger" className="flex-1" onClick={handleDelete}>
-                     <Trash2 className="mr-2 h-4 w-4" /> Löschen
-                   </Button>
+                  <Button variant="danger" className="w-full" onClick={handleDelete}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Löschen
+                  </Button>
                 )}
               </div>
             </div>

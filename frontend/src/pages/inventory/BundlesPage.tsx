@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { useAuth } from '../../features/auth/useAuth'
 import { useInventoryBundles } from '../../features/inventory/useInventory'
 import { apiDownload } from '../../lib/api'
@@ -29,7 +29,7 @@ export function BundlesPage() {
   }
 
   if (isLoading) {
-    return <Loading fullScreen />
+    return <ListPageSkeleton />
   }
 
   return (

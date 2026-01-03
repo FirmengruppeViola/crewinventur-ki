@@ -8,6 +8,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { Button } from './Button'
+import { OverlayPortal } from './OverlayPortal'
 
 export type OnboardingSlide = {
   icon: React.ElementType
@@ -26,13 +27,16 @@ type OnboardingSlidesProps = {
   finalButtonText?: string
   /** Zeigt "Nicht mehr anzeigen" Checkbox (default: true) */
   showDontShowAgain?: boolean
+  /** Label für "Nicht mehr anzeigen" (default: "Nicht mehr anzeigen") */
+  dontShowAgainLabel?: string
 }
 
 export function OnboardingSlides({
   slides,
   onComplete,
   finalButtonText = "Los geht's!",
-  showDontShowAgain = true
+  showDontShowAgain = true,
+  dontShowAgainLabel = 'Nicht mehr anzeigen'
 }: OnboardingSlidesProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [direction, setDirection] = useState<'next' | 'prev'>('next')
@@ -58,7 +62,8 @@ export function OnboardingSlides({
   }
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[1000] overflow-hidden" role="dialog" aria-modal="true" aria-label="Onboarding">
       {/* Solid background layer */}
       <div className="absolute inset-0 bg-background" />
       {/* Blur overlay */}
@@ -71,7 +76,7 @@ export function OnboardingSlides({
       </div>
 
       {/* Content */}
-      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+24px)] pb-[calc(env(safe-area-inset-bottom)+24px)]">
+      <div className="relative z-10 mx-auto flex min-h-screen min-h-[100dvh] w-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+24px)] pb-[calc(env(safe-area-inset-bottom)+24px)]">
         <div className="flex flex-1 flex-col justify-center">
           {/* Slide Content */}
           <div
@@ -157,20 +162,21 @@ export function OnboardingSlides({
           {isLast && showDontShowAgain && (
             <button
               onClick={() => setDontShowAgain(!dontShowAgain)}
-              className="flex items-center justify-center gap-3 w-full mt-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center gap-3 w-full mt-6 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
             >
               {dontShowAgain ? (
                 <CheckSquare className="h-5 w-5 text-primary" />
               ) : (
                 <Square className="h-5 w-5 text-muted-foreground" />
               )}
-              <span className={`text-sm ${dontShowAgain ? 'text-foreground' : 'text-muted-foreground'}`}>
-                Nicht mehr anzeigen
+              <span className={`text-sm text-center ${dontShowAgain ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {dontShowAgainLabel}
               </span>
             </button>
           )}
         </div>
       </div>
     </div>
+    </OverlayPortal>
   )
 }

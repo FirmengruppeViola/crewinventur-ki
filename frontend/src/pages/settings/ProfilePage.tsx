@@ -6,7 +6,7 @@ import { Save, LogOut, Briefcase } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
-import { Loading } from '../../components/ui/Loading'
+import { FormPageSkeleton } from '../../components/ui/Skeleton'
 import { useAuth } from '../../features/auth/useAuth'
 import { apiRequest } from '../../lib/api'
 import { useUiStore } from '../../stores/uiStore'
@@ -108,7 +108,7 @@ export function ProfilePage() {
   }
 
   if (loading) {
-    return <Loading fullScreen />
+    return <FormPageSkeleton />
   }
 
   return (

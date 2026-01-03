@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { BottomSheet } from '../../components/ui/BottomSheet'
-import { Loading } from '../../components/ui/Loading'
+import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../../features/products/useProducts'
 import { useCategories } from '../../features/products/useCategories'
 import { useUiStore } from '../../stores/uiStore'
@@ -105,7 +105,7 @@ export function ProductsPage() {
     setIsEditMode(false)
   }
 
-  if (isLoading) return <Loading fullScreen />
+  if (isLoading) return <ListPageSkeleton />
 
   return (
     <div className="space-y-6 pb-40">

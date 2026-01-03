@@ -18,6 +18,7 @@ type LocationInput = {
 }
 
 export function useLocations() {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
@@ -26,10 +27,13 @@ export function useLocations() {
     queryFn: () =>
       apiRequest<Location[]>('/api/v1/locations', { method: 'GET' }, token),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<Location[]>(['locations']),
   })
 }
 
 export function useLocation(locationId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
@@ -42,6 +46,10 @@ export function useLocation(locationId?: string) {
         token,
       ),
     enabled: Boolean(token && locationId),
+    placeholderData: () =>
+      locationId
+        ? queryClient.getQueryData<Location>(['locations', locationId])
+        : undefined,
   })
 }
 

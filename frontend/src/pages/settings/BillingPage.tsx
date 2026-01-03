@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Crown, Sparkles, Zap } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { FormPageSkeleton } from '../../components/ui/Skeleton'
 import { useAuth } from '../../features/auth/useAuth'
 import { apiRequest } from '../../lib/api'
 
@@ -50,7 +50,7 @@ export function BillingPage() {
   }, [session?.access_token])
 
   if (loading) {
-    return <Loading fullScreen />
+    return <FormPageSkeleton />
   }
 
   const currentPlan = plans.find(p => p.is_current) || plans[0]

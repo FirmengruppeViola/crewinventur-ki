@@ -4,7 +4,7 @@ import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus, Wand2 } from 'lucide-rea
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { Select } from '../../components/ui/Select'
 import {
   useInvoiceItems,
@@ -144,7 +144,7 @@ export function InvoiceMatchingPage() {
   }
 
   if (isLoading) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   return (

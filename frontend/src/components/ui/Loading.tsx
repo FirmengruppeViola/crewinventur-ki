@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 
 type LoadingProps = {
   size?: 'sm' | 'md' | 'lg'
   fullScreen?: boolean
+  delayMs?: number
 }
 
 const sizeStyles = {
@@ -11,7 +13,28 @@ const sizeStyles = {
   lg: 'h-10 w-10 border-[3px]',
 }
 
-export function Loading({ size = 'md', fullScreen = false }: LoadingProps) {
+export function Loading({
+  size = 'md',
+  fullScreen = false,
+  delayMs = 120,
+}: LoadingProps) {
+  const [isVisible, setIsVisible] = useState(!fullScreen || delayMs === 0)
+
+  useEffect(() => {
+    if (!fullScreen) return
+    if (delayMs === 0) {
+      setIsVisible(true)
+      return
+    }
+    setIsVisible(false)
+    const timer = setTimeout(() => setIsVisible(true), delayMs)
+    return () => clearTimeout(timer)
+  }, [delayMs, fullScreen])
+
+  if (fullScreen && !isVisible) {
+    return null
+  }
+
   const spinner = (
     <div
       className={cn(
@@ -23,7 +46,7 @@ export function Loading({ size = 'md', fullScreen = false }: LoadingProps) {
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         {spinner}
       </div>
     )

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ChevronRight, Send } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Loading } from '../../components/ui/Loading'
+import { DetailPageSkeleton } from '../../components/ui/Skeleton'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Textarea } from '../../components/ui/Textarea'
@@ -63,7 +63,7 @@ export function SessionSummaryPage() {
   }
 
   if (isLoading || !session) {
-    return <Loading fullScreen />
+    return <DetailPageSkeleton />
   }
 
   const hasMissingPrices = validation && !validation.valid
