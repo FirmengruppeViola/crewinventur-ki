@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore, type UserType } from '../../stores/authStore'
+import { apiRequest } from '../../lib/api'
 import { warmCache } from '../../lib/queryClient'
 import { preloadCriticalRoutes } from '../../lib/prefetch'
 
@@ -246,22 +247,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/team/accept-invitation`,
+          await apiRequest(
+            '/api/v1/team/accept-invitation',
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
               body: JSON.stringify({ invitation_code: code }),
-            }
+            },
+            token,
           )
-
-          if (!response.ok) {
-            const data = await response.json()
-            return { error: data.detail || 'Einladung fehlgeschlagen' }
-          }
 
           // Reload user context after accepting invitation
           if (session?.user) {
@@ -269,8 +262,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           return { error: null }
-        } catch {
-          return { error: 'Netzwerkfehler' }
+        } catch (error) {
+          return {
+            error: error instanceof Error ? error.message : 'Netzwerkfehler',
+          }
         }
       },
     }),

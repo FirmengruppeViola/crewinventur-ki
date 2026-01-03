@@ -1,4 +1,5 @@
 import { QueryClient, type QueryClientConfig } from '@tanstack/react-query'
+import { apiRequest } from './api'
 
 // =============================================================================
 // 2026 BEST PRACTICES - React Query Configuration for Hybrid Apps
@@ -16,6 +17,10 @@ function shouldRetry(failureCount: number, error: unknown): boolean {
 
   // Don't retry client errors (4xx)
   if (error instanceof Error) {
+    const status = (error as { status?: number }).status
+    if (status && status >= 400 && status < 500 && status !== 429) {
+      return false
+    }
     const message = error.message.toLowerCase()
     if (
       message.includes('401') ||
@@ -136,8 +141,6 @@ export function rollbackUpdate<T>(queryKey: unknown[], previousData: T) {
  * Call this immediately after successful authentication.
  */
 export async function warmCache(token: string) {
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-
   const endpoints = [
     { key: ['locations'], url: '/api/v1/locations' },
     { key: ['products'], url: '/api/v1/products' },
@@ -148,16 +151,8 @@ export async function warmCache(token: string) {
   await Promise.allSettled(
     endpoints.map(async ({ key, url }) => {
       try {
-        const response = await fetch(`${API_BASE}${url}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        })
-        if (response.ok) {
-          const data = await response.json()
-          queryClient.setQueryData(key, data)
-        }
+        const data = await apiRequest(url, { method: 'GET' }, token)
+        queryClient.setQueryData(key, data)
       } catch {
         // Ignore errors during cache warming
       }

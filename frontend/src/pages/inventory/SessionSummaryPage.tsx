@@ -15,7 +15,7 @@ import {
   useExportValidation,
 } from '../../features/inventory/useInventory'
 import { useAuth } from '../../features/auth/useAuth'
-import { apiRequest, API_BASE_URL } from '../../lib/api'
+import { apiDownload, apiRequest } from '../../lib/api'
 import { useUiStore } from '../../stores/uiStore'
 
 export function SessionSummaryPage() {
@@ -74,29 +74,23 @@ export function SessionSummaryPage() {
       addToast(`Warnung: ${validation.missing_count} Produkte ohne Preis`, 'info')
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/export/session/${sessionId}/${format}`,
-      {
-        headers: authSession?.access_token
-          ? { Authorization: `Bearer ${authSession.access_token}` }
-          : {},
-      },
-    )
-    if (!response.ok) {
-      addToast('Download fehlgeschlagen.', 'error')
-      return
+    const filename =
+      format === 'csv-summary'
+        ? `inventory-${sessionId}-summary.csv`
+        : `inventory-${sessionId}.${format}`
+
+    try {
+      await apiDownload(
+        `/api/v1/export/session/${sessionId}/${format}`,
+        filename,
+        authSession?.access_token,
+      )
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Download fehlgeschlagen.',
+        'error',
+      )
     }
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    if (format === 'csv-summary') {
-      link.download = `inventory-${sessionId}-summary.csv`
-    } else {
-      link.download = `inventory-${sessionId}.${format}`
-    }
-    link.click()
-    URL.revokeObjectURL(url)
   }
 
   const handleSendEmail = async (event: FormEvent) => {

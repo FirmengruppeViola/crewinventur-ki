@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../features/auth/useAuth'
 import { apiRequest } from './api'
@@ -18,6 +19,20 @@ type PrefetchConfig = {
   staleTime?: number
 }
 
+function shouldPrefetch(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const connection = (
+    navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }
+  ).connection
+  if (connection?.saveData) return false
+  if (connection?.effectiveType && /(^|-)2g$/.test(connection.effectiveType)) {
+    return false
+  }
+  return true
+}
+
 export function usePrefetch() {
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -25,6 +40,7 @@ export function usePrefetch() {
 
   const prefetch = useCallback(
     (configs: PrefetchConfig | PrefetchConfig[]) => {
+      if (!shouldPrefetch()) return
       const configArray = Array.isArray(configs) ? configs : [configs]
 
       configArray.forEach((config) => {
@@ -222,6 +238,8 @@ export function preloadRouteChunk(path: string) {
  * Uses requestIdleCallback for non-blocking preload.
  */
 export function preloadCriticalRoutes() {
+  if (Capacitor.isNativePlatform()) return
+  if (!shouldPrefetch()) return
   const preload = () => {
     Object.values(routeChunks).forEach((importFn) => importFn())
   }

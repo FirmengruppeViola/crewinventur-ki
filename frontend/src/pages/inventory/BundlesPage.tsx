@@ -5,7 +5,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Loading } from '../../components/ui/Loading'
 import { useAuth } from '../../features/auth/useAuth'
 import { useInventoryBundles } from '../../features/inventory/useInventory'
-import { API_BASE_URL } from '../../lib/api'
+import { apiDownload } from '../../lib/api'
 import { useUiStore } from '../../stores/uiStore'
 
 export function BundlesPage() {
@@ -14,25 +14,18 @@ export function BundlesPage() {
   const { data: bundles, isLoading } = useInventoryBundles()
 
   const downloadBundle = async (bundleId: string) => {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/export/bundle/${bundleId}/pdf`,
-      {
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {},
-      },
-    )
-    if (!response.ok) {
-      addToast('Download fehlgeschlagen.', 'error')
-      return
+    try {
+      await apiDownload(
+        `/api/v1/export/bundle/${bundleId}/pdf`,
+        `inventory-bundle-${bundleId}.pdf`,
+        session?.access_token,
+      )
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Download fehlgeschlagen.',
+        'error',
+      )
     }
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `inventory-bundle-${bundleId}.pdf`
-    link.click()
-    URL.revokeObjectURL(url)
   }
 
   if (isLoading) {

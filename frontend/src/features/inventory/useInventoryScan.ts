@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiRequest, apiUpload } from '../../lib/api'
 import { useAuth } from '../auth/useAuth'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 // =====================================================
 // Types
@@ -88,47 +87,25 @@ export function useInventoryScan(sessionId: string) {
         formData.append('image', image)
         formData.append('auto_create', 'true')
 
-        const response = await fetch(
-          `${API_BASE}/api/v1/inventory/sessions/${sessionId}/scan`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          }
+        return apiUpload<ScanResult>(
+          `/api/v1/inventory/sessions/${sessionId}/scan`,
+          formData,
+          token,
         )
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}))
-          throw new Error(error.detail || 'Scan failed')
-        }
-
-        return response.json()
-      } else {
-        // Base64 string
-        const response = await fetch(
-          `${API_BASE}/api/v1/inventory/sessions/${sessionId}/scan`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              image,
-              auto_create: true,
-            }),
-          }
-        )
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}))
-          throw new Error(error.detail || 'Scan failed')
-        }
-
-        return response.json()
       }
+
+      // Base64 string
+      return apiRequest<ScanResult>(
+        `/api/v1/inventory/sessions/${sessionId}/scan`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            image,
+            auto_create: true,
+          }),
+        },
+        token,
+      )
     },
   })
 }
@@ -149,46 +126,24 @@ export function useShelfScan(sessionId: string) {
         formData.append('image', image)
         formData.append('auto_create', 'true')
 
-        const response = await fetch(
-          `${API_BASE}/api/v1/inventory/sessions/${sessionId}/scan-shelf`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          }
+        return apiUpload<ShelfScanResult>(
+          `/api/v1/inventory/sessions/${sessionId}/scan-shelf`,
+          formData,
+          token,
         )
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}))
-          throw new Error(error.detail || 'Shelf scan failed')
-        }
-
-        return response.json()
-      } else {
-        const response = await fetch(
-          `${API_BASE}/api/v1/inventory/sessions/${sessionId}/scan-shelf`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              image,
-              auto_create: true,
-            }),
-          }
-        )
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}))
-          throw new Error(error.detail || 'Shelf scan failed')
-        }
-
-        return response.json()
       }
+
+      return apiRequest<ShelfScanResult>(
+        `/api/v1/inventory/sessions/${sessionId}/scan-shelf`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            image,
+            auto_create: true,
+          }),
+        },
+        token,
+      )
     },
   })
 }
@@ -203,32 +158,23 @@ export function useAddScannedItem(sessionId: string) {
   const token = session?.access_token
 
   return useMutation({
-    mutationFn: async (payload: ScanItemInput) => {
-      const response = await fetch(
-        `${API_BASE}/api/v1/inventory/sessions/${sessionId}/items`,
+    mutationFn: async (payload: ScanItemInput) =>
+      apiRequest(
+        `/api/v1/inventory/sessions/${sessionId}/items`,
         {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             ...payload,
             scan_method: payload.scan_method || 'photo',
           }),
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.detail || 'Failed to add item')
-      }
-
-      return response.json()
-    },
+        },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', 'items', sessionId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory', 'sessions', sessionId] })
+      queryClient.invalidateQueries({
+        queryKey: ['inventory', 'sessions', sessionId],
+      })
     },
   })
 }
