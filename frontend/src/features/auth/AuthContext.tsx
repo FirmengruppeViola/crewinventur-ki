@@ -62,46 +62,67 @@ async function loadUserContext(
   userId: string,
   setUserContext: (userType: UserType, ownerId: string | null, locationIds: string[]) => void
 ) {
-  // Load profile to get user_type and owner_id
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('user_type, owner_id')
-    .eq('id', userId)
-    .maybeSingle()
-
-  const userType = (profile?.user_type as UserType) || 'owner'
-  const ownerId = profile?.owner_id || null
-
-  // Load allowed locations
-  let locationIds: string[] = []
-
-  if (userType === 'owner' || !ownerId) {
-    // Owner sees all their locations
-    const { data: locations } = await supabase
-      .from('locations')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-    locationIds = locations?.map((l) => l.id) || []
-  } else {
-    // Manager sees only assigned locations via team_member_locations
-    const { data: teamMember } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_active', true)
+  try {
+    // Load profile to get user_type and owner_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_type, owner_id')
+      .eq('id', userId)
       .maybeSingle()
 
-    if (teamMember) {
-      const { data: assignments } = await supabase
-        .from('team_member_locations')
-        .select('location_id')
-        .eq('team_member_id', teamMember.id)
-      locationIds = assignments?.map((a) => a.location_id) || []
+    if (profileError) {
+      console.error('Error loading profile:', profileError)
     }
-  }
 
-  setUserContext(userType, ownerId, locationIds)
+    const userType = (profile?.user_type as UserType) || 'owner'
+    const ownerId = profile?.owner_id || null
+
+    // Load allowed locations
+    let locationIds: string[] = []
+
+    if (userType === 'owner' || !ownerId) {
+      // Owner sees all their locations
+      const { data: locations, error: locError } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('user_id', userId)
+
+      if (locError) {
+        console.error('Error loading locations:', locError)
+      }
+      locationIds = locations?.map((l) => l.id) || []
+    } else {
+      // Manager sees only assigned locations via team_member_locations
+      const { data: teamMember, error: tmError } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (tmError) {
+        console.error('Error loading team member:', tmError)
+      }
+
+      if (teamMember) {
+        const { data: assignments, error: assignError } = await supabase
+          .from('team_member_locations')
+          .select('location_id')
+          .eq('team_member_id', teamMember.id)
+
+        if (assignError) {
+          console.error('Error loading assignments:', assignError)
+        }
+        locationIds = assignments?.map((a) => a.location_id) || []
+      }
+    }
+
+    setUserContext(userType, ownerId, locationIds)
+  } catch (err) {
+    console.error('Error in loadUserContext:', err)
+    // Set defaults so login doesn't hang
+    setUserContext('owner', null, [])
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
