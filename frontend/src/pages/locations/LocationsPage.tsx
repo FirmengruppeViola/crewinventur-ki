@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Plus, MapPin, ChevronRight, Edit2, Trash2, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Loading } from '../../components/ui/Loading'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Textarea } from '../../components/ui/Textarea'
@@ -55,7 +54,9 @@ export function LocationsPage() {
       }
       handleClose()
     } catch (err) {
-      addToast('Speichern fehlgeschlagen.', 'error')
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler'
+      addToast(`Speichern fehlgeschlagen: ${message}`, 'error')
+      console.error('Save location error:', err)
     }
   }
 
@@ -66,7 +67,9 @@ export function LocationsPage() {
       addToast('Location gelöscht.', 'success')
       handleClose()
     } catch (err) {
-      addToast('Löschen fehlgeschlagen.', 'error')
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler'
+      addToast(`Löschen fehlgeschlagen: ${message}`, 'error')
+      console.error('Delete location error:', err)
     }
   }
 
@@ -76,7 +79,20 @@ export function LocationsPage() {
     setIsEditMode(false)
   }
 
-  if (isLoading) return <Loading fullScreen />
+  // Skeleton component for loading state
+  const LocationSkeleton = () => (
+    <div className="grid gap-4">
+      {[1, 2, 3].map((i) => (
+        <Card key={i} className="flex items-center gap-4 p-4 animate-pulse">
+          <div className="h-12 w-12 rounded-2xl bg-muted" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-32 rounded bg-muted" />
+            <div className="h-3 w-48 rounded bg-muted" />
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
 
   return (
     <div className="space-y-8 pb-40">
@@ -94,15 +110,20 @@ export function LocationsPage() {
 
       {error ? (
         <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-          Daten konnten nicht geladen werden.
+          <p className="font-medium">Fehler beim Laden</p>
+          <p className="mt-1 text-xs opacity-80">
+            {error instanceof Error ? error.message : 'Unbekannter Fehler'}
+          </p>
         </div>
       ) : null}
 
-      {data && data.length > 0 ? (
+      {isLoading ? <LocationSkeleton /> : null}
+
+      {!isLoading && data && data.length > 0 && (
         <div className="grid gap-4">
           {data.map((location) => (
-            <Card 
-              key={location.id} 
+            <Card
+              key={location.id}
               onClick={() => handleOpenDetail(location)}
               className="group relative flex cursor-pointer items-center gap-4 overflow-hidden p-4 transition-all hover:bg-accent/50 active:scale-[0.99]"
             >
@@ -119,7 +140,9 @@ export function LocationsPage() {
             </Card>
           ))}
         </div>
-      ) : (
+      )}
+
+      {!isLoading && !error && (!data || data.length === 0) && (
         <EmptyState
           title="Keine Locations"
           description="Erstelle hier deinen ersten Standort."

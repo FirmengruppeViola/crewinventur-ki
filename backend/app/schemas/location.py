@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -20,3 +21,5 @@ class LocationOut(LocationBase):
     id: str
     user_id: str
     is_active: bool
+    created_at: datetime
+    updated_at: datetime

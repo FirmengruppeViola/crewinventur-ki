@@ -95,7 +95,7 @@ def get_current_user_context(
         supabase.table("profiles")
         .select("user_type, owner_id")
         .eq("id", user.id)
-        .single()
+        .maybe_single()
         .execute()
     )
 

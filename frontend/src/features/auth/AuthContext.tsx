@@ -136,26 +136,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
 
+    const loadContextWithTimeout = async (userId: string) => {
+      try {
+        await Promise.race([
+          (async () => {
+            await ensureProfile({ id: userId } as User)
+            await loadUserContext(userId, setUserContext)
+          })(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Auth context timeout')), 5000)
+          ),
+        ])
+      } catch (e) {
+        console.error('Auth context load failed:', e)
+        // Set defaults so app doesn't hang
+        setUserContext('owner', null, [])
+      }
+    }
+
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return
       const nextSession = data.session ?? null
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
-        await ensureProfile(nextSession.user)
-        await loadUserContext(nextSession.user.id, setUserContext)
+        await loadContextWithTimeout(nextSession.user.id)
       } else {
         clearAuth()
       }
-      setLoading(false)
+      setLoading(false) // ALWAYS called
     })
 
     const { data } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!active) return
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
-        await ensureProfile(nextSession.user)
-        await loadUserContext(nextSession.user.id, setUserContext)
+        await loadContextWithTimeout(nextSession.user.id)
       } else {
         clearAuth()
       }
