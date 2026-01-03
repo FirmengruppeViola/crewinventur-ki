@@ -176,18 +176,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isOwner: userType === 'owner',
       isManager: userType === 'manager',
       signIn: async ({ email, password }) => {
-        console.log('AuthContext signIn starting...')
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          })
-          console.log('signInWithPassword completed:', { data: !!data, error: error?.message })
-          return { error: error?.message ?? null }
-        } catch (err) {
-          console.error('signInWithPassword threw:', err)
-          return { error: 'Verbindungsfehler' }
-        }
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        return { error: error?.message ?? null }
       },
       signUp: async ({ email, password, displayName }) => {
         const { data, error } = await supabase.auth.signUp({
