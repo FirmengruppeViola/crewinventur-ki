@@ -53,6 +53,12 @@
 
 /* Glassmorphism Utility - Updated for Slate Theme */
 @layer utilities {
+  .safe-area-top {
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+  }
+  .safe-area-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
   .glass {
     @apply bg-slate-900/70 backdrop-blur-xl border-t border-white/10;
   }

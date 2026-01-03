@@ -41,7 +41,7 @@ export function BottomNav() {
   )
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 pt-4 px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 pt-4 px-4 safe-area-bottom">
       <nav className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/10 bg-card/80 p-2 shadow-2xl backdrop-blur-xl supports-[backdrop-filter]:bg-card/60">
         {navItems.map((item) => {
           const isActive =
