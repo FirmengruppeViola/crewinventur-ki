@@ -1,0 +1,59 @@
+name: iOS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Fastlane lane (beta or release)"
+        required: true
+        default: "release"
+
+jobs:
+  ios:
+    runs-on: macos-14
+    env:
+      APP_IDENTIFIER: de.firmengruppeviola.crewinventur
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_TEAM_ID: ${{ secrets.APP_STORE_CONNECT_TEAM_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      MATCH_GIT_PRIVATE_KEY: ${{ secrets.MATCH_GIT_PRIVATE_KEY }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install JS deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build web
+        working-directory: frontend
+        run: npm run build
+
+      - name: Sync iOS assets
+        working-directory: frontend
+        run: npx cap sync ios
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: frontend/ios
+
+      - name: Fastlane
+        working-directory: frontend/ios
+        run: bundle exec fastlane ios ${{ inputs.lane }}
