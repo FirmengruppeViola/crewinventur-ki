@@ -2,11 +2,15 @@ default_platform(:ios)
 
 platform :ios do
   def app_store_api_key
+    raw_key = ENV.fetch("APP_STORE_CONNECT_KEY")
+    key_content = raw_key.gsub("\\n", "\n")
+    is_base64 = !key_content.include?("BEGIN PRIVATE KEY")
+
     app_store_connect_api_key(
       key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
       issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
-      key_content: ENV.fetch("APP_STORE_CONNECT_KEY"),
-      is_key_content_base64: true,
+      key_content: key_content,
+      is_key_content_base64: is_base64,
     )
   end
 
