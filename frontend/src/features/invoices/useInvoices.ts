@@ -34,21 +34,27 @@ export type InvoiceItem = {
 }
 
 export function useInvoices() {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['invoices']
   return useQuery({
-    queryKey: ['invoices'],
+    queryKey,
     queryFn: () =>
       apiRequest<Invoice[]>('/api/v1/invoices', { method: 'GET' }, token),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<Invoice[]>(queryKey),
   })
 }
 
 export function useInvoice(invoiceId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['invoices', invoiceId]
   return useQuery({
-    queryKey: ['invoices', invoiceId],
+    queryKey,
     queryFn: () =>
       apiRequest<Invoice>(
         `/api/v1/invoices/${invoiceId}`,
@@ -56,14 +62,20 @@ export function useInvoice(invoiceId?: string) {
         token,
       ),
     enabled: Boolean(token && invoiceId),
+    placeholderData: () =>
+      invoiceId
+        ? queryClient.getQueryData<Invoice>(queryKey)
+        : undefined,
   })
 }
 
 export function useInvoiceItems(invoiceId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['invoices', invoiceId, 'items']
   return useQuery({
-    queryKey: ['invoices', invoiceId, 'items'],
+    queryKey,
     queryFn: () =>
       apiRequest<InvoiceItem[]>(
         `/api/v1/invoices/${invoiceId}/items`,
@@ -71,6 +83,10 @@ export function useInvoiceItems(invoiceId?: string) {
         token,
       ),
     enabled: Boolean(token && invoiceId),
+    placeholderData: () =>
+      invoiceId
+        ? queryClient.getQueryData<InvoiceItem[]>(queryKey)
+        : undefined,
   })
 }
 
@@ -157,10 +173,12 @@ export function useAutoCreateProducts(invoiceId: string) {
  * Get count of unmatched items in an invoice.
  */
 export function useUnmatchedCount(invoiceId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['invoices', invoiceId, 'unmatched-count']
   return useQuery({
-    queryKey: ['invoices', invoiceId, 'unmatched-count'],
+    queryKey,
     queryFn: () =>
       apiRequest<{ unmatched_count: number }>(
         `/api/v1/invoices/${invoiceId}/unmatched-count`,
@@ -168,6 +186,10 @@ export function useUnmatchedCount(invoiceId?: string) {
         token,
       ),
     enabled: Boolean(token && invoiceId),
+    placeholderData: () =>
+      invoiceId
+        ? queryClient.getQueryData<{ unmatched_count: number }>(queryKey)
+        : undefined,
   })
 }
 

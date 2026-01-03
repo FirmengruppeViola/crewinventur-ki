@@ -90,10 +90,12 @@ export function useInventorySessions() {
 }
 
 export function useInventorySession(sessionId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['inventory', 'sessions', sessionId]
   return useQuery({
-    queryKey: ['inventory', 'sessions', sessionId],
+    queryKey,
     queryFn: () =>
       apiRequest<InventorySession>(
         `/api/v1/inventory/sessions/${sessionId}`,
@@ -101,6 +103,10 @@ export function useInventorySession(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<InventorySession>(queryKey)
+        : undefined,
   })
 }
 
@@ -158,10 +164,12 @@ export function useCompleteInventorySession(sessionId: string) {
 }
 
 export function useSessionItems(sessionId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['inventory', 'items', sessionId]
   return useQuery({
-    queryKey: ['inventory', 'items', sessionId],
+    queryKey,
     queryFn: () =>
       apiRequest<InventoryItem[]>(
         `/api/v1/inventory/sessions/${sessionId}/items`,
@@ -169,6 +177,10 @@ export function useSessionItems(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<InventoryItem[]>(queryKey)
+        : undefined,
   })
 }
 
@@ -227,10 +239,12 @@ export function useDeleteSessionItem(itemId: string, sessionId: string) {
 }
 
 export function useInventoryBundles() {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['inventory', 'bundles']
   return useQuery({
-    queryKey: ['inventory', 'bundles'],
+    queryKey,
     queryFn: () =>
       apiRequest<InventoryBundle[]>(
         '/api/v1/inventory/bundles',
@@ -238,14 +252,18 @@ export function useInventoryBundles() {
         token,
       ),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<InventoryBundle[]>(queryKey),
   })
 }
 
 export function useInventoryBundle(bundleId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['inventory', 'bundles', bundleId]
   return useQuery({
-    queryKey: ['inventory', 'bundles', bundleId],
+    queryKey,
     queryFn: () =>
       apiRequest<InventoryBundle>(
         `/api/v1/inventory/bundles/${bundleId}`,
@@ -253,14 +271,20 @@ export function useInventoryBundle(bundleId?: string) {
         token,
       ),
     enabled: Boolean(token && bundleId),
+    placeholderData: () =>
+      bundleId
+        ? queryClient.getQueryData<InventoryBundle>(queryKey)
+        : undefined,
   })
 }
 
 export function useInventoryBundleSessions(bundleId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['inventory', 'bundles', bundleId, 'sessions']
   return useQuery({
-    queryKey: ['inventory', 'bundles', bundleId, 'sessions'],
+    queryKey,
     queryFn: () =>
       apiRequest<BundleSession[]>(
         `/api/v1/inventory/bundles/${bundleId}/sessions`,
@@ -268,6 +292,10 @@ export function useInventoryBundleSessions(bundleId?: string) {
         token,
       ),
     enabled: Boolean(token && bundleId),
+    placeholderData: () =>
+      bundleId
+        ? queryClient.getQueryData<BundleSession[]>(queryKey)
+        : undefined,
   })
 }
 
@@ -352,10 +380,12 @@ export function useMissingPrices(sessionId?: string) {
 }
 
 export function useExportValidation(sessionId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
+  const queryKey = ['export', 'validate', sessionId]
   return useQuery({
-    queryKey: ['export', 'validate', sessionId],
+    queryKey,
     queryFn: () =>
       apiRequest<ExportValidation>(
         `/api/v1/export/session/${sessionId}/validate`,
@@ -363,6 +393,10 @@ export function useExportValidation(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<ExportValidation>(queryKey)
+        : undefined,
   })
 }
 

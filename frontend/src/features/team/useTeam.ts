@@ -30,18 +30,26 @@ export type TeamMemberUpdate = {
 
 // Fetch all team members
 export function useTeamMembers() {
+  const queryClient = useQueryClient()
+  const queryKey = ['team', 'members']
   return useQuery({
-    queryKey: ['team', 'members'],
+    queryKey,
     queryFn: () => apiRequest<TeamMember[]>('/api/v1/team/members'),
+    placeholderData: () =>
+      queryClient.getQueryData<TeamMember[]>(queryKey),
   })
 }
 
 // Fetch single team member
 export function useTeamMember(id: string) {
+  const queryClient = useQueryClient()
+  const queryKey = ['team', 'members', id]
   return useQuery({
-    queryKey: ['team', 'members', id],
+    queryKey,
     queryFn: () => apiRequest<TeamMember>(`/api/v1/team/members/${id}`),
     enabled: !!id,
+    placeholderData: () =>
+      id ? queryClient.getQueryData<TeamMember>(queryKey) : undefined,
   })
 }
 

@@ -6,27 +6,6 @@ type PageTransitionProps = {
   children: ReactNode
 }
 
-// Fast, subtle transition optimized for mobile
-const pageVariants = {
-  initial: {
-    opacity: 0,
-  },
-  enter: {
-    opacity: 1,
-    transition: {
-      duration: 0.12,
-      ease: 'easeOut' as const,
-    },
-  },
-  exit: {
-    opacity: 0,
-    transition: {
-      duration: 0.08,
-      ease: 'easeIn' as const,
-    },
-  },
-}
-
 /**
  * Wraps page content with smooth enter/exit animations.
  * Optimized for mobile: fast, subtle, GPU-accelerated.
@@ -35,18 +14,15 @@ export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation()
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        variants={pageVariants}
-        initial="initial"
-        animate="enter"
-        exit="exit"
-        style={{ willChange: 'opacity, transform' }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={location.pathname}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
+      style={{ willChange: 'opacity' }}
+    >
+      {children}
+    </motion.div>
   )
 }
 

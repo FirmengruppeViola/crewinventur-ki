@@ -19,11 +19,13 @@ export type CategoryInput = {
 }
 
 export function useCategories() {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
+  const queryKey = ['categories']
   return useQuery({
-    queryKey: ['categories'],
+    queryKey,
     queryFn: () =>
       apiRequest<Category[]>(
         '/api/v1/categories',
@@ -31,6 +33,8 @@ export function useCategories() {
         token,
       ),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<Category[]>(queryKey),
   })
 }
 

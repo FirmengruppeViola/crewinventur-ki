@@ -31,31 +31,39 @@ export type ProductInput = {
 }
 
 export function useProducts(params?: { categoryId?: string; query?: string }) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
   const queryParams = new URLSearchParams()
   if (params?.categoryId) queryParams.set('category_id', params.categoryId)
   if (params?.query) queryParams.set('q', params.query)
+  const queryString = queryParams.toString()
+  const url = queryString ? `/api/v1/products?${queryString}` : '/api/v1/products'
 
+  const queryKey = ['products', queryString]
   return useQuery({
-    queryKey: ['products', params],
+    queryKey,
     queryFn: () =>
       apiRequest<Product[]>(
-        `/api/v1/products?${queryParams.toString()}`,
+        url,
         { method: 'GET' },
         token,
       ),
     enabled: Boolean(token),
+    placeholderData: () =>
+      queryClient.getQueryData<Product[]>(queryKey),
   })
 }
 
 export function useProduct(productId?: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
+  const queryKey = ['products', productId]
   return useQuery({
-    queryKey: ['products', productId],
+    queryKey,
     queryFn: () =>
       apiRequest<Product>(
         `/api/v1/products/${productId}`,
@@ -63,6 +71,10 @@ export function useProduct(productId?: string) {
         token,
       ),
     enabled: Boolean(token && productId),
+    placeholderData: () =>
+      productId
+        ? queryClient.getQueryData<Product>(queryKey)
+        : undefined,
   })
 }
 
@@ -122,11 +134,13 @@ export function useDeleteProduct(productId: string) {
 }
 
 export function useBarcodeLookup(code: string) {
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
 
+  const queryKey = ['products', 'barcode', code]
   return useQuery({
-    queryKey: ['products', 'barcode', code],
+    queryKey,
     queryFn: () =>
       apiRequest<Product>(
         `/api/v1/products/barcode/${code}`,
@@ -134,5 +148,7 @@ export function useBarcodeLookup(code: string) {
         token,
       ),
     enabled: Boolean(token && code),
+    placeholderData: () =>
+      code ? queryClient.getQueryData<Product>(queryKey) : undefined,
   })
 }
