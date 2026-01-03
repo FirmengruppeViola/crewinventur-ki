@@ -31,14 +31,22 @@ export function LoginPage() {
   })
 
   const onSubmit = async (values: LoginFormValues) => {
+    console.log('Login onSubmit called', values.email)
     setFormError(null)
-    const { error } = await signIn(values)
-    if (error) {
-      setFormError(error)
-      return
+    try {
+      console.log('Calling signIn...')
+      const { error } = await signIn(values)
+      console.log('signIn result:', error)
+      if (error) {
+        setFormError(error)
+        return
+      }
+      addToast('Erfolgreich eingeloggt.', 'success')
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      console.error('Login error:', err)
+      setFormError('Ein unerwarteter Fehler ist aufgetreten')
     }
-    addToast('Erfolgreich eingeloggt.', 'success')
-    navigate('/dashboard', { replace: true })
   }
 
   return (
