@@ -32,7 +32,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.log in production
+        drop_console: true,
         drop_debugger: true,
       },
     },
@@ -71,14 +71,8 @@ export default defineConfig({
             return 'vendor-misc'
           }
 
-          // Page chunks - loaded on demand
-          if (id.includes('/pages/dashboard/')) return 'page-dashboard'
-          if (id.includes('/pages/locations/')) return 'page-locations'
-          if (id.includes('/pages/products/')) return 'page-products'
-          if (id.includes('/pages/inventory/')) return 'page-inventory'
-          if (id.includes('/pages/invoices/')) return 'page-invoices'
-          if (id.includes('/pages/settings/')) return 'page-settings'
-          if (id.includes('/pages/auth/')) return 'page-auth'
+          // Pages are automatically code-split by React.lazy() in routes.tsx
+          // No manual chunking needed - Vite handles it correctly
         },
 
         // Consistent chunk names for better caching

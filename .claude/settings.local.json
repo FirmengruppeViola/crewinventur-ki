@@ -8,7 +8,22 @@
       "WebFetch(domain:developer.datev.de)",
       "Bash(railway:*)",
       "mcp__playwright__browser_navigate",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(winget install:*)",
+      "Bash(./adb install:*)",
+      "Bash(./adb shell am start:*)",
+      "Bash(./adb logcat:*)",
+      "Bash(export JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\")",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(./adb devices:*)",
+      "Bash(./adb shell:*)",
+      "Bash(set JAVA_HOME=C:Program FilesAndroidAndroid Studiojbr:*)",
+      "Bash(\"C:/Users/viola/AppData/Local/Android/Sdk/platform-tools/adb.exe\" install -r C:/Projects/CrewInventurKI/frontend/android/app/build/outputs/apk/debug/app-debug.apk)",
+      "Bash(\"C:/Users/viola/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices)",
+      "Bash(\"C:/Users/viola/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat:*)",
+      "Bash(\"C:/Users/viola/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat -d)",
+      "Bash(timeout 10 npm run dev)",
+      "Bash(\"C:/Users/viola/AppData/Local/Android/Sdk/platform-tools/adb.exe\" shell am start -n de.firmengruppeviola.crewinventur/.MainActivity)"
     ]
   }
 }
