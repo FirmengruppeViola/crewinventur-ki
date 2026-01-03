@@ -73,6 +73,9 @@ dist-ssr/
 .dmypy.json
 dmypy.json
 
+# Apple API keys
+*.p8
+
 # Auto Claude data directory
 .auto-claude/
 
