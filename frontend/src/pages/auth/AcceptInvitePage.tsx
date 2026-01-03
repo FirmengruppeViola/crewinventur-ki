@@ -49,7 +49,7 @@ export function AcceptInvitePage() {
               to="/"
               className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent"
             >
-              CrewChecker
+              CrewInventur
             </Link>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
               <Ticket className="h-8 w-8 text-primary" />
@@ -95,7 +95,7 @@ export function AcceptInvitePage() {
             to="/"
             className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent"
           >
-            CrewChecker
+            CrewInventur
           </Link>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Ticket className="h-8 w-8 text-primary" />

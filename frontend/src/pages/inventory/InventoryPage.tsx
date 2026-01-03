@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive } from 'lucide-react'
+import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive, Sparkles, Camera, Edit3, FileText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -9,6 +9,8 @@ import { Select } from '../../components/ui/Select'
 import { Input } from '../../components/ui/Input'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { Loading } from '../../components/ui/Loading'
+import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
+import { useOnboarding } from '../../hooks/useOnboarding'
 import { useLocations } from '../../features/locations/useLocations'
 import {
   useCreateInventoryBundle,
@@ -17,10 +19,53 @@ import {
 } from '../../features/inventory/useInventory'
 import { useUiStore } from '../../stores/uiStore'
 
+// Inventur-Onboarding Slides
+const inventoryOnboardingSlides: OnboardingSlide[] = [
+  {
+    icon: Sparkles,
+    iconColor: 'text-violet-400',
+    iconBg: 'bg-violet-500/20',
+    title: 'Willkommen zur Inventur',
+    subtitle: 'Mit KI-Unterstützung erfasst du deinen Bestand in Minuten statt Stunden.',
+    highlight: 'Einfach. Schnell. Genau.',
+    animation: 'animate-float',
+  },
+  {
+    icon: Camera,
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/20',
+    title: 'Foto aufnehmen',
+    subtitle: 'Fotografiere dein Regal – die KI erkennt automatisch alle Produkte.',
+    highlight: 'Keine manuelle Eingabe nötig',
+    animation: 'animate-pulse-slow',
+  },
+  {
+    icon: Edit3,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/20',
+    title: 'Menge eingeben',
+    subtitle: 'Tippe einfach die Anzahl ein. Fertig!',
+    highlight: 'Ein Produkt = Ein Klick',
+    animation: 'animate-bounce-slow',
+  },
+  {
+    icon: FileText,
+    iconColor: 'text-blue-400',
+    iconBg: 'bg-blue-500/20',
+    title: 'Export & Fertig',
+    subtitle: 'Generiere einen PDF-Bericht für deinen Steuerberater mit einem Klick.',
+    highlight: 'Inventurwert sofort berechnet',
+    animation: 'animate-float',
+  },
+]
+
 export function InventoryPage() {
   const navigate = useNavigate()
   const addToast = useUiStore((state) => state.addToast)
-  
+
+  // Onboarding
+  const { shouldShow: showOnboarding, markAsSeen: markOnboardingSeen } = useOnboarding('inventory-intro')
+
   // Modals / Sheets State
   const [isOpen, setIsOpen] = useState(false)
   const [isBundleOpen, setIsBundleOpen] = useState(false)
@@ -293,8 +338,8 @@ export function InventoryPage() {
       </Modal>
 
       {/* Completed Session Details Sheet */}
-      <BottomSheet 
-         isOpen={!!selectedCompletedSession} 
+      <BottomSheet
+         isOpen={!!selectedCompletedSession}
          onClose={() => setSelectedCompletedSession(null)}
       >
          <div className="space-y-6 pb-6">
@@ -325,6 +370,14 @@ export function InventoryPage() {
             </Link>
          </div>
       </BottomSheet>
+
+      {/* Inventur Onboarding */}
+      {showOnboarding && (
+        <OnboardingSlides
+          slides={inventoryOnboardingSlides}
+          onComplete={(dontShowAgain) => markOnboardingSeen(dontShowAgain)}
+        />
+      )}
     </div>
   )
 }

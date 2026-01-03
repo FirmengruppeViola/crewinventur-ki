@@ -16,7 +16,7 @@ export function Header() {
           to="/dashboard"
           className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-lg font-bold tracking-tight text-transparent"
         >
-          CrewChecker
+          CrewInventur
         </Link>
         <Link
           to="/settings"

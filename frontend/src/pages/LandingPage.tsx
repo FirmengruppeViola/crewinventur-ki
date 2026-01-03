@@ -75,7 +75,7 @@ export function LandingPage() {
         </section>
         
         <footer className="mt-10 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground">
-          &copy; 2026 CrewChecker. Made for heavy duty kitchens.
+          &copy; 2026 CrewInventur. KI-gestützte Inventur für die Gastronomie.
         </footer>
       </div>
     </div>

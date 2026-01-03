@@ -1,5 +1,6 @@
 {
-  "name": "frontend",
+  "name": "crewinventur",
+  "description": "KI-gestützte Inventur-App für Gastronomen",
   "private": true,
   "version": "0.0.0",
   "type": "module",

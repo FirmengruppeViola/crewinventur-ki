@@ -49,7 +49,7 @@ export function LoginPage() {
       <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
           <Link to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
-            CrewChecker
+            CrewInventur
           </Link>
           <h1 className="text-2xl font-bold text-foreground">Willkommen zurück</h1>
           <p className="mt-2 text-sm text-muted-foreground">
