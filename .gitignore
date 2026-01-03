@@ -50,9 +50,9 @@ dist-ssr/
 *~
 .DS_Store
 
-# Capacitor
-ios/
-android/
+# Capacitor (native projects committed for App Store builds)
+# ios/
+# android/
 .capacitor/
 
 # Environment

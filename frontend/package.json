@@ -2,18 +2,26 @@
   "name": "crewinventur",
   "description": "KI-gestützte Inventur-App für Gastronomen",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:assets": "capacitor-assets generate",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap sync ios && cap open ios",
+    "cap:android": "cap sync android && cap open android",
+    "build:ios": "npm run build && npm run cap:ios",
+    "build:android": "npm run build && npm run cap:android"
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^6.0.0",
+    "@capacitor/android": "^6.2.1",
     "@capacitor/camera": "^6.0.0",
     "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.2.1",
     "@hookform/resolvers": "^3.9.1",
     "@supabase/supabase-js": "^2.47.0",
     "@tanstack/react-query": "^5.62.0",
@@ -28,6 +36,8 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0",
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.0",
