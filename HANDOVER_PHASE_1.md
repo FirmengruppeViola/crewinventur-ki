@@ -10,7 +10,7 @@
 ✅ **GitHub Repo:** https://github.com/FirmengruppeViola/crewinventur-ki
 ✅ **Supabase Database:** 8 Tabellen + RLS + 2 Storage Buckets
 ✅ **Railway Backend:** https://crewinventur-ki-backend-production.up.railway.app
-✅ **Cloudflare Frontend:** https://crewinventur-ki.pages.dev
+✅ **Cloudflare Frontend:** https://crewinventurki.pages.dev
 ✅ **Environment Variables:** Alle Keys gesetzt (Backend + Frontend)
 ✅ **Health Checks:** Alle Services verified
 
@@ -39,7 +39,7 @@ Dashboard: https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67
 
 ### Cloudflare Pages
 ```
-Frontend URL: https://crewinventur-ki.pages.dev
+Frontend URL: https://crewinventurki.pages.dev
 Project Name: crewinventur-ki
 Account ID: 06633edf3843240956d67e95a1d03aba
 API Key: 4cacfee9cd7e1317b721e27ebed1355fcdc94
@@ -252,7 +252,7 @@ venv\Scripts\python test_connection.py
 2. **Cloudflare Pages:** Auto-deploys bei push
 3. **Railway Backend:** Auto-deploys bei push
 4. **Teste Production:**
-   - Frontend: https://crewinventur-ki.pages.dev
+   - Frontend: https://crewinventurki.pages.dev
    - Backend: https://crewinventur-ki-backend-production.up.railway.app
 
 ---

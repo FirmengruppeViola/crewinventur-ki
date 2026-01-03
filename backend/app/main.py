@@ -14,7 +14,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://crewinventur-ki.pages.dev",
         "https://crewinventurki.pages.dev",
     ],
     allow_credentials=True,

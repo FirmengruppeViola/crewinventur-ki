@@ -11,7 +11,7 @@
 | **GitHub** | ✅ LIVE | https://github.com/FirmengruppeViola/crewinventur-ki | Repo mit allen Configs |
 | **Supabase** | ✅ LIVE | https://pzgpvwzmlssmepvqtgnq.supabase.co | Database + Auth + Storage |
 | **Railway** | ✅ LIVE | https://crewinventur-ki-backend-production.up.railway.app | Backend LIVE + Health Check OK |
-| **Cloudflare Pages** | ✅ LIVE | https://crewinventur-ki.pages.dev | Frontend deployed + ENV VARS gesetzt |
+| **Cloudflare Pages** | ✅ LIVE | https://crewinventurki.pages.dev | Frontend deployed + ENV VARS gesetzt |
 
 ---
 
@@ -55,11 +55,11 @@
 | Component | Status | Details |
 |-----------|--------|---------|
 | Projekt | ✅ CREATED | Name: crewinventur-ki |
-| Deployment | ✅ LIVE | https://crewinventur-ki.pages.dev |
+| Deployment | ✅ LIVE | https://crewinventurki.pages.dev |
 | Build | ✅ SUCCESS | Vite + React + Tailwind |
 | Environment Variables | ✅ SET | VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY |
 
-**Live URL:** https://crewinventur-ki.pages.dev
+**Live URL:** https://crewinventurki.pages.dev
 **Landing Page:** ✅ Funktioniert (3 Feature-Cards sichtbar)
 
 ---
@@ -67,7 +67,7 @@
 ## 📋 Nächste Schritte
 
 1. ✅ **Railway Environment Variables gesetzt** (alle 6 via GraphQL API)
-2. ✅ **Frontend testen:** https://crewinventur-ki.pages.dev
+2. ✅ **Frontend testen:** https://crewinventurki.pages.dev
 3. ✅ **Backend testen:** https://crewinventur-ki-backend-production.up.railway.app/health
 4. 🎯 **Phase 1 starten:** Authentication + Core UI
 
@@ -99,7 +99,7 @@ npm run dev  # Startet auf :5173
 | Supabase Dashboard | https://supabase.com/dashboard/project/pzgpvwzmlssmepvqtgnq |
 | Railway Dashboard | https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67 |
 | Cloudflare Pages | https://dash.cloudflare.com → Pages → crewinventur-ki |
-| Frontend LIVE | https://crewinventur-ki.pages.dev |
+| Frontend LIVE | https://crewinventurki.pages.dev |
 | Backend LIVE | https://crewinventur-ki-backend-production.up.railway.app |
 
 ---

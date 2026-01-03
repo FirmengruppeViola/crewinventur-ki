@@ -66,7 +66,7 @@ Diese Datei enthält:
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | https://crewinventur-ki.pages.dev |
+| **Frontend** | https://crewinventurki.pages.dev |
 | **Backend** | https://crewinventur-ki-backend-production.up.railway.app |
 | **Health Check** | https://crewinventur-ki-backend-production.up.railway.app/health |
 | **GitHub** | https://github.com/FirmengruppeViola/crewinventur-ki |
@@ -205,7 +205,7 @@ git push origin master
 → **Railway Backend** deployed automatisch
 
 ### Production URLs
-- Frontend: https://crewinventur-ki.pages.dev
+- Frontend: https://crewinventurki.pages.dev
 - Backend: https://crewinventur-ki-backend-production.up.railway.app
 
 ---
