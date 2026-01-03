@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useNavigate, type NavigateOptions, type To } from 'react-router-dom'
+import { supportsViewTransitions } from '../lib/viewTransitions'
 
 export function useViewNavigate() {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export function useViewNavigate() {
         navigate(to)
         return
       }
-      navigate(to, { viewTransition: true, ...options })
+      navigate(to, { viewTransition: supportsViewTransitions, ...options })
     },
     [navigate],
   )

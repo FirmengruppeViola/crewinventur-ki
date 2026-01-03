@@ -168,6 +168,7 @@ export function usePrefetch() {
 
 import { Link, type LinkProps } from 'react-router-dom'
 import { forwardRef, type ReactNode, type MouseEvent, type TouchEvent } from 'react'
+import { supportsViewTransitions } from './viewTransitions'
 
 type PrefetchLinkProps = LinkProps & {
   prefetchFn?: () => void
@@ -191,7 +192,7 @@ export const PrefetchLink = forwardRef<HTMLAnchorElement, PrefetchLinkProps>(
     }
 
     return (
-      <Link viewTransition
+      <Link viewTransition={supportsViewTransitions}
         ref={ref}
         onMouseEnter={handleMouseEnter}
         onTouchStart={handleTouchStart}
