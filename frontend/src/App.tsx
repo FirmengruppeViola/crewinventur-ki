@@ -6,6 +6,7 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { AcceptInvitePage } from './pages/auth/AcceptInvitePage'
 import { ProfilePage } from './pages/settings/ProfilePage'
 import { TeamPage } from './pages/settings/TeamPage'
+import { BillingPage } from './pages/settings/BillingPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { LocationsPage } from './pages/locations/LocationsPage'
@@ -64,6 +65,7 @@ function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/profile" element={<ProfilePage />} />
               <Route path="/settings/team" element={<TeamPage />} />
+              <Route path="/settings/billing" element={<BillingPage />} />
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/inventory/bundles" element={<BundlesPage />} />
               <Route path="/inventory/bundles/:id" element={<BundleSummaryPage />} />

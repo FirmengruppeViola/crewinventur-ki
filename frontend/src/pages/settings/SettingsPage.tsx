@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { User, Users, Info, LogOut, ChevronRight } from 'lucide-react'
+import { User, Users, Info, LogOut, ChevronRight, CreditCard } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useAuth } from '../../features/auth/useAuth'
@@ -53,6 +53,21 @@ export function SettingsPage() {
                    <div className="flex-1 overflow-hidden">
                      <p className="truncate font-medium text-foreground">Team</p>
                      <p className="text-xs text-muted-foreground">Betriebsleiter verwalten</p>
+                   </div>
+                   <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                 </Card>
+               </Link>
+             )}
+
+             {isOwner && (
+               <Link to="/settings/billing">
+                 <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/50 active:scale-[0.99]">
+                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+                     <CreditCard className="h-6 w-6" />
+                   </div>
+                   <div className="flex-1 overflow-hidden">
+                     <p className="truncate font-medium text-foreground">Abonnement</p>
+                     <p className="text-xs text-muted-foreground">Plan und Zahlung verwalten</p>
                    </div>
                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                  </Card>

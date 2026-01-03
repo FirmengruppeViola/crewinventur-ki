@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.api.endpoints import (
     ai,
+    billing,
     bundles,
     categories,
     export,
@@ -26,3 +27,4 @@ api_router.include_router(invoices.router, tags=["invoices"])
 api_router.include_router(export.router, tags=["export"])
 api_router.include_router(bundles.router, tags=["bundles"])
 api_router.include_router(team.router, prefix="/team", tags=["team"])
+api_router.include_router(billing.router, tags=["billing"])

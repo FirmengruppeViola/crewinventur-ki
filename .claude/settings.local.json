@@ -7,7 +7,8 @@
       "Bash(VITE_SUPABASE_URL=\"https://pzgpvwzmlssmepvqtgnq.supabase.co\" VITE_SUPABASE_ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6Z3B2d3ptbHNzbWVwdnF0Z25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDY0MzIsImV4cCI6MjA4Mjg4MjQzMn0.Ue9gEhbjCWt1hZO9hxKmMAvn4_q8Og_wUf3Tfuf7PSc\" VITE_API_BASE_URL=\"https://crewinventur-ki-backend-production.up.railway.app\" npm run build:*)",
       "WebFetch(domain:developer.datev.de)",
       "Bash(railway:*)",
-      "mcp__playwright__browser_navigate"
+      "mcp__playwright__browser_navigate",
+      "Bash(tree:*)"
     ]
   }
 }
