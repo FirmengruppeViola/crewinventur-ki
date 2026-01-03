@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore, type UserType } from '../../stores/authStore'
+import { warmCache } from '../../lib/queryClient'
+import { preloadCriticalRoutes } from '../../lib/prefetch'
 
 type SignInInput = {
   email: string
@@ -161,18 +163,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession) {
         setAuth(nextSession)
         await loadContextWithTimeout(nextSession.user.id)
+        // Preload routes and warm cache for instant navigation
+        preloadCriticalRoutes()
+        warmCache(nextSession.access_token)
       } else {
         clearAuth()
       }
       setLoading(false) // ALWAYS called
     })
 
-    const { data } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
         await loadContextWithTimeout(nextSession.user.id)
+        // On sign in, preload routes and warm cache
+        if (event === 'SIGNED_IN') {
+          preloadCriticalRoutes()
+          warmCache(nextSession.access_token)
+        }
       } else {
         clearAuth()
       }
