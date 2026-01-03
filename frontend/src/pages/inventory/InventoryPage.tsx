@@ -205,7 +205,12 @@ export function InventoryPage() {
                 <Card className="group relative overflow-hidden border-l-4 border-l-primary p-4 hover:bg-accent/50 transition-all">
                   <div className="flex items-center justify-between">
                      <div>
-                        <h3 className="font-bold text-foreground text-lg">{session.name || 'Laufende Inventur'}</h3>
+                        <h3
+                          className="font-bold text-foreground text-lg"
+                          style={{ viewTransitionName: `inventory-session-${session.id}` }}
+                        >
+                          {session.name || 'Laufende Inventur'}
+                        </h3>
                         <p className="text-sm text-muted-foreground mt-1">
                            {locationMap.get(session.location_id)?.name || 'Unbekannte Location'}
                         </p>

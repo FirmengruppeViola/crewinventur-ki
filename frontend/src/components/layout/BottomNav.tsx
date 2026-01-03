@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Camera, FileText, Home, MapPin, Package } from 'lucide-react'
+import { Camera, Clock, FileText, Grid3X3, Home, MapPin, Package, Play, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { usePrefetch, preloadRouteChunk } from '../../lib/prefetch'
@@ -52,7 +52,7 @@ export function BottomNav() {
   )
 
   const activeSessions = sessions?.filter((session) => session.status !== 'completed') ?? []
-  const primarySession = activeSessions[0]
+  const sessionCount = activeSessions.length
 
   const handleOpenCreate = useCallback(() => {
     navigate('/inventory', { state: { openCreate: true } })
@@ -168,69 +168,115 @@ export function BottomNav() {
             <Loading />
           </div>
         ) : (
-          <div className="space-y-5 pb-2">
+          <div className="space-y-6 pb-2">
             <div>
               <h2 className="text-xl font-bold">Scannen</h2>
               <p className="text-sm text-muted-foreground">
-                {primarySession ? 'Laufende Inventur gefunden.' : 'Keine laufende Inventur.'}
+                Laufende Inventur fortsetzen oder eine neue starten.
               </p>
             </div>
 
-            {primarySession ? (
-              <>
-                <div className="rounded-xl bg-accent/50 p-4">
-                  <p className="text-xs text-muted-foreground">Aktive Session</p>
-                  <p className="font-semibold text-foreground">
-                    {primarySession.name || 'Laufende Inventur'}
+            {sessionCount > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Laufende Inventur
                   </p>
+                  <span className="text-xs text-muted-foreground">
+                    {sessionCount} aktiv
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  <Button
-                    className="w-full h-12"
-                    onClick={() => {
-                      setShowScanSheet(false)
-                      navigate(`/inventory/sessions/${primarySession.id}/scan`)
-                    }}
-                  >
-                    Einzelscan starten
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="w-full h-12"
-                    onClick={() => {
-                      setShowScanSheet(false)
-                      navigate(`/inventory/sessions/${primarySession.id}/shelf-scan`)
-                    }}
-                  >
-                    Regal-Scan starten
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full h-12"
-                    onClick={() => {
-                      setShowScanSheet(false)
-                      navigate(`/inventory/sessions/${primarySession.id}`)
-                    }}
-                  >
-                    Session öffnen
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full h-12"
-                    onClick={() => {
-                      setShowScanSheet(false)
-                      handleOpenCreate()
-                    }}
-                  >
-                    Neue Inventur starten
-                  </Button>
+
+                <div className="space-y-3">
+                  {activeSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="rounded-2xl border border-primary/20 bg-primary/10 p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                          <Clock className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-semibold text-foreground">
+                            {session.name || 'Laufende Inventur'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Aktiv · {session.total_items} Items
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setShowScanSheet(false)
+                            navigate(`/inventory/sessions/${session.id}`)
+                          }}
+                        >
+                          <Play className="mr-1 h-4 w-4" />
+                          Fortsetzen
+                        </Button>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          className="h-11"
+                          onClick={() => {
+                            setShowScanSheet(false)
+                            navigate(`/inventory/sessions/${session.id}/scan`)
+                          }}
+                        >
+                          <Camera className="mr-2 h-4 w-4" />
+                          Einzelscan
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-11"
+                          onClick={() => {
+                            setShowScanSheet(false)
+                            navigate(`/inventory/sessions/${session.id}/shelf-scan`)
+                          }}
+                        >
+                          <Grid3X3 className="mr-2 h-4 w-4" />
+                          Regal-Scan
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </>
-            ) : (
-              <Button className="w-full h-12" onClick={handleOpenCreate}>
-                Neue Inventur starten
-              </Button>
-            )}
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Neue Inventur
+              </p>
+              <div className="rounded-2xl border border-dashed border-border p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">
+                      Neue Inventur starten
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Erstellt eine neue Session.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  className="mt-3 h-12 w-full"
+                  onClick={() => {
+                    setShowScanSheet(false)
+                    handleOpenCreate()
+                  }}
+                >
+                  Neue Inventur
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </BottomSheet>

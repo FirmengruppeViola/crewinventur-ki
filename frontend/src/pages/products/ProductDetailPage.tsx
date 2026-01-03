@@ -53,7 +53,12 @@ export function ProductDetailPage() {
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
+          <h1
+            className="text-2xl font-bold text-gray-900"
+            style={{ viewTransitionName: `product-name-${data.id}` }}
+          >
+            {data.name}
+          </h1>
           <p className="text-sm text-gray-600">
             {[data.brand, data.size].filter(Boolean).join(' · ') || 'Ohne Details'}
           </p>

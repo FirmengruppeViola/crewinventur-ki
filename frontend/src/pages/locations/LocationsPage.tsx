@@ -149,7 +149,12 @@ export function LocationsPage() {
                 <MapPin className="h-6 w-6" />
               </div>
               <div className="flex-1 overflow-hidden">
-                <h3 className="truncate font-semibold text-foreground">{location.name}</h3>
+                <h3
+                  className="truncate font-semibold text-foreground"
+                  style={{ viewTransitionName: `location-name-${location.id}` }}
+                >
+                  {location.name}
+                </h3>
                 <p className="truncate text-sm text-muted-foreground">
                   {location.description || 'Keine Beschreibung'}
                 </p>

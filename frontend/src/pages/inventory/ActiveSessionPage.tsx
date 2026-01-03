@@ -162,7 +162,10 @@ export function ActiveSessionPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">
+            <h1
+              className="text-xl font-bold truncate"
+              style={{ viewTransitionName: `inventory-session-${session.id}` }}
+            >
               {location.data?.name || session.name || 'Inventur'}
             </h1>
             <p className="text-xs text-muted-foreground">

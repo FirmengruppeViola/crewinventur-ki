@@ -54,7 +54,12 @@ export function LocationDetailPage() {
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
+          <h1
+            className="text-2xl font-bold text-gray-900"
+            style={{ viewTransitionName: `location-name-${data.id}` }}
+          >
+            {data.name}
+          </h1>
           <p className="text-sm text-gray-600">{data.description || 'Keine Beschreibung'}</p>
         </div>
         <Link viewTransition to="/locations">

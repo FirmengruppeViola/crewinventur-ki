@@ -161,7 +161,12 @@ export function ProductsPage() {
                   <Package className="h-6 w-6" />
                </div>
                <div className="flex-1 overflow-hidden">
-                  <h3 className="truncate font-medium text-foreground">{product.name}</h3>
+                  <h3
+                    className="truncate font-medium text-foreground"
+                    style={{ viewTransitionName: `product-name-${product.id}` }}
+                  >
+                    {product.name}
+                  </h3>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                     {product.brand && (
                       <span className="rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground">{product.brand}</span>
