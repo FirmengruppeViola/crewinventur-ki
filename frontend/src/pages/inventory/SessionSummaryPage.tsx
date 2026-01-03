@@ -1,6 +1,6 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Send } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Loading } from '../../components/ui/Loading'
@@ -36,6 +36,31 @@ export function SessionSummaryPage() {
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [accountantEmail, setAccountantEmail] = useState<string | null>(null)
+
+  // Load accountant email from profile
+  useEffect(() => {
+    if (!authSession?.access_token) return
+    apiRequest<{ accountant_email: string | null }>(
+      '/api/v1/profile',
+      { method: 'GET' },
+      authSession.access_token,
+    ).then((profile) => {
+      if (profile.accountant_email) {
+        setAccountantEmail(profile.accountant_email)
+      }
+    }).catch(() => {
+      // Ignore errors - accountant email is optional
+    })
+  }, [authSession?.access_token])
+
+  // Pre-fill email when opening modal
+  const openEmailModal = () => {
+    if (accountantEmail && !email) {
+      setEmail(accountantEmail)
+    }
+    setShowEmailModal(true)
+  }
 
   if (isLoading || !session) {
     return <Loading fullScreen />
@@ -167,8 +192,9 @@ export function SessionSummaryPage() {
           <Button variant="secondary" size="sm" onClick={() => downloadFile('csv-summary')}>
             CSV Zusammenfassung
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setShowEmailModal(true)}>
-            An Steuerberater senden
+          <Button variant="secondary" size="sm" onClick={openEmailModal}>
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            {accountantEmail ? 'An Steuerberater senden' : 'Per Email senden'}
           </Button>
         </div>
       </Card>
@@ -199,7 +225,7 @@ export function SessionSummaryPage() {
       <Modal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
-        title="Inventur per Email"
+        title={accountantEmail ? 'An Steuerberater senden' : 'Inventur per Email'}
       >
         <form className="space-y-4" onSubmit={handleSendEmail}>
           <Input

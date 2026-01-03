@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Save, LogOut } from 'lucide-react'
+import { Save, LogOut, Briefcase } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -16,11 +16,15 @@ type Profile = {
   email: string
   display_name: string | null
   company_name: string | null
+  accountant_name: string | null
+  accountant_email: string | null
 }
 
 const schema = z.object({
   displayName: z.string().optional(),
   companyName: z.string().optional(),
+  accountantName: z.string().optional(),
+  accountantEmail: z.string().email('Ungültige Email-Adresse').optional().or(z.literal('')),
 })
 
 type ProfileFormValues = z.infer<typeof schema>
@@ -57,6 +61,8 @@ export function ProfilePage() {
         reset({
           displayName: data.display_name ?? '',
           companyName: data.company_name ?? '',
+          accountantName: data.accountant_name ?? '',
+          accountantEmail: data.accountant_email ?? '',
         })
       } catch (error) {
         setLoadError(
@@ -76,6 +82,8 @@ export function ProfilePage() {
       const payload = {
         display_name: values.displayName?.trim() || null,
         company_name: values.companyName?.trim() || null,
+        accountant_name: values.accountantName?.trim() || null,
+        accountant_email: values.accountantEmail?.trim() || null,
       }
       const data = await apiRequest<Profile>(
         '/api/v1/profile',
@@ -137,7 +145,34 @@ export function ProfilePage() {
             error={errors.companyName?.message}
             {...register('companyName')}
           />
-          <div className="pt-2">
+
+          {/* Steuerberater Sektion */}
+          <div className="pt-4 border-t border-border">
+            <div className="flex items-center gap-2 mb-4">
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Steuerberater</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Hinterlege die Daten deines Steuerberaters, um Inventur-Exporte direkt per Email zu versenden.
+            </p>
+            <div className="space-y-4">
+              <Input
+                label="Name"
+                placeholder="z.B. Steuerberatung Müller"
+                error={errors.accountantName?.message}
+                {...register('accountantName')}
+              />
+              <Input
+                label="Email"
+                type="email"
+                placeholder="steuerberater@beispiel.de"
+                error={errors.accountantEmail?.message}
+                {...register('accountantEmail')}
+              />
+            </div>
+          </div>
+
+          <div className="pt-4">
             <Button type="submit" loading={isSubmitting} className="w-full sm:w-auto">
               <Save className="mr-2 h-4 w-4" /> Speichern
             </Button>

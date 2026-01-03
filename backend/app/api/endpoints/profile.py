@@ -13,7 +13,7 @@ def get_profile(current_user=Depends(get_current_user)):
 
     response = (
         supabase.table("profiles")
-        .select("id, email, display_name, company_name")
+        .select("id, email, display_name, company_name, accountant_name, accountant_email")
         .eq("id", user_id)
         .execute()
     )
@@ -55,6 +55,8 @@ def update_profile(
             {
                 "display_name": payload.display_name,
                 "company_name": payload.company_name,
+                "accountant_name": payload.accountant_name,
+                "accountant_email": payload.accountant_email,
             }
         )
         .eq("id", user_id)
