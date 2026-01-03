@@ -1,8 +1,8 @@
 from .profile import ProfileOut, ProfileUpdate
 from .location import LocationBase, LocationCreate, LocationUpdate, LocationOut
 from .category import CategoryOut
-from .product import ProductCreate, ProductUpdate, ProductOut, ProductSearch
-from .invoice import InvoiceOut, InvoiceItemOut, MatchRequest
+from .product import ProductCreate, ProductUpdate, ProductOut
+from .invoice import InvoiceOut, InvoiceItemOut
 from .inventory import (
     InventorySessionCreate,
     InventorySessionOut,
@@ -11,7 +11,7 @@ from .inventory import (
     InventoryItemUpdate,
     InventoryItemOut,
 )
-from .bundles import BundleCreate, BundleOut, BundleSummary
+from .bundles import BundleCreate, BundleOut
 from .team import (
     TeamMemberBase,
     TeamMemberCreate,
@@ -33,10 +33,8 @@ __all__ = [
     "ProductCreate",
     "ProductUpdate",
     "ProductOut",
-    "ProductSearch",
     "InvoiceOut",
     "InvoiceItemOut",
-    "MatchRequest",
     "InventorySessionCreate",
     "InventorySessionOut",
     "InventorySessionUpdate",
@@ -45,7 +43,6 @@ __all__ = [
     "InventoryItemOut",
     "BundleCreate",
     "BundleOut",
-    "BundleSummary",
     "TeamMemberBase",
     "TeamMemberCreate",
     "TeamMemberUpdate",
