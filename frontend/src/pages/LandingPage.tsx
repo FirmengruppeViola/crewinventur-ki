@@ -74,8 +74,13 @@ export function LandingPage() {
           </Card>
         </section>
         
-        <footer className="mt-10 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground">
-          &copy; 2026 CrewInventur. KI-gestützte Inventur für die Gastronomie.
+        <footer className="mt-10 border-t border-white/5 pt-8 text-center text-sm text-muted-foreground space-y-3">
+          <div className="flex justify-center gap-6">
+            <Link to="/terms" className="hover:text-foreground transition-colors">AGB</Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Datenschutz</Link>
+            <Link to="/imprint" className="hover:text-foreground transition-colors">Impressum</Link>
+          </div>
+          <p>&copy; 2026 CrewInventur. KI-gestützte Inventur für die Gastronomie.</p>
         </footer>
       </div>
     </div>

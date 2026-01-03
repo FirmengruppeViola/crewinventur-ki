@@ -26,6 +26,9 @@ import { BundleSummaryPage } from './pages/inventory/BundleSummaryPage'
 import { InvoicesPage } from './pages/invoices/InvoicesPage'
 import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage'
 import { InvoiceMatchingPage } from './pages/invoices/InvoiceMatchingPage'
+import { TermsPage } from './pages/legal/TermsPage'
+import { PrivacyPage } from './pages/legal/PrivacyPage'
+import { ImprintPage } from './pages/legal/ImprintPage'
 import { AuthProvider } from './features/auth/AuthContext'
 import { ProtectedRoute } from './features/auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
@@ -42,6 +45,9 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/imprint" element={<ImprintPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AppShell />}>
