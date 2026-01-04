@@ -3,7 +3,6 @@ import { AuthProvider } from './features/auth/AuthContext'
 import { ProtectedRoute } from './features/auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { ToastHost } from './components/ui/Toast'
-import { BuildStamp } from './components/ui/BuildStamp'
 import { publicRoutes, protectedRoutes, fallbackRoute } from './routes'
 
 function App() {
@@ -11,7 +10,6 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastHost />
-        <BuildStamp />
         <Routes>
           {/* Public routes - no auth required */}
           {publicRoutes.map((route) => (
