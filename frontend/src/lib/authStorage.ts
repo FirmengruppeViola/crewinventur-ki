@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
+import { SecureStorage } from '@aparajita/capacitor-secure-storage'
 
 type StorageValue = string | null
 
@@ -19,7 +19,7 @@ function warnOnce(message: string, error: unknown) {
 
 async function getSecureItem(key: string): Promise<StorageValue> {
   try {
-    const { value } = await SecureStoragePlugin.get({ key })
+    const value = await SecureStorage.getItem(key)
     return typeof value === 'string' ? value : null
   } catch {
     return null
@@ -27,11 +27,11 @@ async function getSecureItem(key: string): Promise<StorageValue> {
 }
 
 async function setSecureItem(key: string, value: string): Promise<void> {
-  await SecureStoragePlugin.set({ key, value })
+  await SecureStorage.setItem(key, value)
 }
 
 async function removeSecureItem(key: string): Promise<void> {
-  await SecureStoragePlugin.remove({ key })
+  await SecureStorage.removeItem(key)
 }
 
 async function migrateLegacyValue(key: string): Promise<StorageValue> {
