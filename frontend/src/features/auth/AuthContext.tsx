@@ -146,6 +146,21 @@ async function restoreSessionFromStorage(): Promise<Session | null> {
   }
 }
 
+async function restoreSessionWithRetry(
+  attempts = 3,
+  delayMs = 250,
+): Promise<Session | null> {
+  let session: Session | null = null
+  for (let i = 0; i < attempts; i += 1) {
+    session = await restoreSessionFromStorage()
+    if (session) return session
+    if (i < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+  return session
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -177,9 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return
+      const storedSession = await authStorage.getItem(supabaseStorageKey)
       let nextSession = data.session ?? null
-      if (!nextSession) {
-        nextSession = await restoreSessionFromStorage()
+      if (!nextSession && storedSession) {
+        nextSession = await restoreSessionWithRetry()
       }
       setSession(nextSession)
       if (nextSession) {
@@ -193,7 +209,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preloadCriticalRoutes()
         warmCache(nextSession.access_token)
       } else {
-        await authStorage.removeItem(supabaseStorageKey)
         clearAuth()
       }
       setLoading(false) // ALWAYS called
@@ -215,7 +230,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           warmCache(nextSession.access_token)
         }
       } else {
-        await authStorage.removeItem(supabaseStorageKey)
+        if (event === 'SIGNED_OUT') {
+          await authStorage.removeItem(supabaseStorageKey)
+        }
         clearAuth()
       }
     })

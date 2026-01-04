@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { useAuth } from '../../features/auth/useAuth'
-import { buildInfo } from '../../lib/buildInfo'
 import { useUiStore } from '../../stores/uiStore'
 
 const schema = z.object({
@@ -23,11 +22,6 @@ export function LoginPage() {
   const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const [formError, setFormError] = useState<string | null>(null)
-  const buildStamp = buildInfo.buildTime
-    .replace('T', ' ')
-    .replace('Z', '')
-    .split('.')[0]
-
   useEffect(() => {
     if (session?.user) {
       navigate('/dashboard', { replace: true })
@@ -57,7 +51,7 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 relative overflow-hidden">
        {/* Background Decoration */}
        <div className="absolute top-[-10%] right-[-5%] h-[400px] w-[400px] rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
-       
+
       <div className="w-full max-w-md flex flex-col gap-8 relative z-10">
         <header className="text-center">
           <Link viewTransition to="/" className="inline-block mb-6 text-2xl font-bold bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
@@ -120,10 +114,6 @@ export function LoginPage() {
             >
               Einladungscode eingeben
             </Link>
-          </div>
-
-          <div className="mt-6 text-center text-[11px] text-muted-foreground">
-            Build {buildInfo.version} · {buildInfo.gitSha} · {buildStamp}
           </div>
         </Card>
       </div>
