@@ -3,7 +3,7 @@ import { SecureStorage } from '@aparajita/capacitor-secure-storage'
 
 type StorageValue = string | null
 
-const isNative = Capacitor.isNativePlatform()
+const isNativePlatform = () => Capacitor.isNativePlatform()
 
 function getWebStorage(): Storage | null {
   if (typeof window === 'undefined') return null
@@ -53,7 +53,7 @@ async function migrateLegacyValue(key: string): Promise<StorageValue> {
 
 export const authStorage = {
   async getItem(key: string): Promise<StorageValue> {
-    if (!isNative) {
+    if (!isNativePlatform()) {
       return getWebStorage()?.getItem(key) ?? null
     }
 
@@ -64,7 +64,7 @@ export const authStorage = {
   },
 
   async setItem(key: string, value: string): Promise<void> {
-    if (!isNative) {
+    if (!isNativePlatform()) {
       getWebStorage()?.setItem(key, value)
       return
     }
@@ -74,11 +74,12 @@ export const authStorage = {
       getWebStorage()?.removeItem(key)
     } catch (error) {
       warnOnce('Secure storage set failed.', error)
+      getWebStorage()?.setItem(key, value)
     }
   },
 
   async removeItem(key: string): Promise<void> {
-    if (!isNative) {
+    if (!isNativePlatform()) {
       getWebStorage()?.removeItem(key)
       return
     }
