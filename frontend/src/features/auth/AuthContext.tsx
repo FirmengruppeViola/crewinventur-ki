@@ -27,6 +27,7 @@ type AuthContextValue = {
   session: Session | null
   user: User | null
   loading: boolean
+  userContextReady: boolean
   userType: UserType
   isOwner: boolean
   isManager: boolean
@@ -146,6 +147,18 @@ async function restoreSessionFromStorage(): Promise<Session | null> {
   }
 }
 
+async function readStoredSession(): Promise<Session | null> {
+  try {
+    const raw = await authStorage.getItem(supabaseStorageKey)
+    if (!raw) return null
+    const stored = JSON.parse(raw) as Partial<Session>
+    if (!stored?.access_token || !stored?.refresh_token) return null
+    return stored as Session
+  } catch {
+    return null
+  }
+}
+
 const refreshTokenKey = 'crewinventur-refresh-token'
 const accessTokenKey = 'crewinventur-access-token'
 
@@ -191,6 +204,7 @@ async function restoreSessionWithRetry(
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userContextReady, setUserContextReady] = useState(false)
   const setAuth = useAuthStore((state) => state.setAuth)
   const setUserContext = useAuthStore((state) => state.setUserContext)
   const clearAuth = useAuthStore((state) => state.clearAuth)
@@ -200,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
 
     const loadContextWithTimeout = async (userId: string) => {
+      setUserContextReady(false)
       try {
         await Promise.race([
           (async () => {
@@ -214,59 +229,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Auth context load failed:', e)
         // Set defaults so app doesn't hang
         setUserContext('owner', null, [])
+      } finally {
+        if (active) {
+          setUserContextReady(true)
+        }
       }
     }
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    const applySession = (nextSession: Session | null) => {
       if (!active) return
-      const storedSession = await authStorage.getItem(supabaseStorageKey)
+      setSession(nextSession)
+      if (nextSession) {
+        setAuth(nextSession)
+        setLoading(false)
+        void authStorage.setItem(
+          supabaseStorageKey,
+          JSON.stringify(nextSession),
+        )
+        void persistTokens(nextSession)
+        void loadContextWithTimeout(nextSession.user.id)
+        // Preload routes and warm cache without blocking the first paint
+        preloadCriticalRoutes()
+        void warmCache(nextSession.access_token)
+      } else {
+        setUserContextReady(false)
+        setLoading(false)
+        void clearTokens()
+        clearAuth()
+      }
+    }
+
+    const bootstrapSession = async () => {
+      const storedSession = await readStoredSession()
+      if (!active) return
+
+      if (storedSession) {
+        applySession(storedSession)
+        // Validate/refresh in the background
+        const refreshed =
+          (await restoreSessionWithRetry()) ?? (await refreshSessionFromToken())
+        if (!active) return
+        if (refreshed) {
+          applySession(refreshed)
+        } else {
+          applySession(null)
+        }
+        return
+      }
+
+      const { data } = await supabase.auth.getSession()
+      if (!active) return
       let nextSession = data.session ?? null
-      if (!nextSession && storedSession) {
+      if (!nextSession) {
         nextSession = await restoreSessionWithRetry()
       }
       if (!nextSession) {
         nextSession = await refreshSessionFromToken()
       }
-      setSession(nextSession)
-      if (nextSession) {
-        setAuth(nextSession)
-        await authStorage.setItem(
-          supabaseStorageKey,
-          JSON.stringify(nextSession),
-        )
-        await persistTokens(nextSession)
-        await loadContextWithTimeout(nextSession.user.id)
-        // Preload routes and warm cache for instant navigation
-        preloadCriticalRoutes()
-        warmCache(nextSession.access_token)
-      } else {
-        await clearTokens()
-        clearAuth()
-      }
-      setLoading(false) // ALWAYS called
-    })
+      if (!active) return
+      applySession(nextSession)
+    }
+
+    void bootstrapSession()
 
     const { data } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
-        await authStorage.setItem(
+        void authStorage.setItem(
           supabaseStorageKey,
           JSON.stringify(nextSession),
         )
-        await persistTokens(nextSession)
-        await loadContextWithTimeout(nextSession.user.id)
+        void persistTokens(nextSession)
+        void loadContextWithTimeout(nextSession.user.id)
         // On sign in, preload routes and warm cache
         if (event === 'SIGNED_IN') {
           preloadCriticalRoutes()
-          warmCache(nextSession.access_token)
+          void warmCache(nextSession.access_token)
         }
       } else {
         if (event === 'SIGNED_OUT') {
-          await authStorage.removeItem(supabaseStorageKey)
+          void authStorage.removeItem(supabaseStorageKey)
         }
-        await clearTokens()
+        setUserContextReady(false)
+        void clearTokens()
         clearAuth()
       }
     })
@@ -282,9 +329,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user ?? null,
       loading,
+      userContextReady,
       userType,
-      isOwner: userType === 'owner',
-      isManager: userType === 'manager',
+      isOwner: userContextReady && userType === 'owner',
+      isManager: userContextReady && userType === 'manager',
       signIn: async ({ email, password }) => {
         const { error } = await supabase.auth.signInWithPassword({
           email,
