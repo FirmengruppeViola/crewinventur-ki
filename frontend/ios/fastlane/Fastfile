@@ -27,6 +27,7 @@ platform :ios do
                   else
                     Base64.decode64(key_content).gsub("\r", "").strip
                   end
+    UI.message("ASC key raw bytes: #{raw_key.bytesize}, first bytes: #{raw_key.bytes.first(5).join(',')}")
     UI.message("ASC key source: #{is_pem ? 'pem' : 'base64'}, header: #{decoded_key.lines.first&.strip}, bytes: #{decoded_key.bytesize}")
 
     app_store_connect_api_key(
