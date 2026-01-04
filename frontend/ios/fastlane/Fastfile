@@ -21,11 +21,13 @@ platform :ios do
   def app_store_api_key
     raw_key = ENV.fetch("APP_STORE_CONNECT_KEY")
     key_content = raw_key.gsub("\\n", "\n").gsub("\r", "").strip
-    decoded_key = if key_content.match?(/BEGIN (EC )?PRIVATE KEY/)
+    is_pem = key_content.match?(/BEGIN (EC )?PRIVATE KEY/)
+    decoded_key = if is_pem
                     key_content
                   else
                     Base64.decode64(key_content).gsub("\r", "").strip
                   end
+    UI.message("ASC key source: #{is_pem ? 'pem' : 'base64'}, header: #{decoded_key.lines.first&.strip}, bytes: #{decoded_key.bytesize}")
 
     app_store_connect_api_key(
       key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
