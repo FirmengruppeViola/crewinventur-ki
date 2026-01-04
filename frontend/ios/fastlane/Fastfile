@@ -36,6 +36,14 @@ platform :ios do
   end
 
   def build_ios_app
+    team_id = ENV["APPLE_TEAM_ID"].to_s.strip
+    UI.user_error!("APPLE_TEAM_ID fehlt. Bitte Secret setzen.") if team_id.empty?
+
+    update_project_team(
+      path: "App/App.xcodeproj",
+      teamid: team_id,
+    )
+
     build_app(
       project: "App/App.xcodeproj",
       scheme: "App",
