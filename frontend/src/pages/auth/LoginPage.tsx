@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { useAuth } from '../../features/auth/useAuth'
+import { buildInfo } from '../../lib/buildInfo'
 import { useUiStore } from '../../stores/uiStore'
 
 const schema = z.object({
@@ -18,10 +19,20 @@ const schema = z.object({
 type LoginFormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { signIn } = useAuth()
+  const { signIn, session } = useAuth()
   const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const [formError, setFormError] = useState<string | null>(null)
+  const buildStamp = buildInfo.buildTime
+    .replace('T', ' ')
+    .replace('Z', '')
+    .split('.')[0]
+
+  useEffect(() => {
+    if (session?.user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [navigate, session])
 
   const {
     register,
@@ -109,6 +120,10 @@ export function LoginPage() {
             >
               Einladungscode eingeben
             </Link>
+          </div>
+
+          <div className="mt-6 text-center text-[11px] text-muted-foreground">
+            Build {buildInfo.version} · {buildInfo.gitSha} · {buildStamp}
           </div>
         </Card>
       </div>

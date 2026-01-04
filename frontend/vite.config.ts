@@ -1,12 +1,38 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'path'
+
+const packageJson = JSON.parse(
+  readFileSync(resolve(__dirname, './package.json'), 'utf-8'),
+) as { version?: string }
+const appVersion = packageJson.version ?? '0.0.0'
+
+let gitSha = 'unknown'
+try {
+  gitSha = execSync('git rev-parse --short HEAD', {
+    cwd: __dirname,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+    .toString()
+    .trim()
+} catch {
+  gitSha = 'unknown'
+}
+
+const buildTime = new Date().toISOString()
 
 // =============================================================================
 // 2026 BEST PRACTICES - Vite Configuration for Capacitor Hybrid Apps
 // =============================================================================
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __GIT_SHA__: JSON.stringify(gitSha),
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   plugins: [react()],
 
   // ===========================================================================
