@@ -20,7 +20,7 @@ platform :ios do
 
   def app_store_api_key
     raw_key = ENV.fetch("APP_STORE_CONNECT_KEY")
-    key_content = raw_key.gsub("\\n", "\n").strip
+    key_content = raw_key.gsub("\\n", "\n").gsub("\r", "").strip
     decoded_key = if key_content.include?("BEGIN PRIVATE KEY")
                     key_content
                   else
