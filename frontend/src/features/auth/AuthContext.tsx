@@ -1,7 +1,8 @@
 import { createContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase } from '../../lib/supabase'
+import { authStorage } from '../../lib/authStorage'
+import { supabase, supabaseStorageKey } from '../../lib/supabase'
 import { useAuthStore, type UserType } from '../../stores/authStore'
 import { apiRequest } from '../../lib/api'
 import { warmCache } from '../../lib/queryClient'
@@ -128,6 +129,23 @@ async function loadUserContext(
   }
 }
 
+async function restoreSessionFromStorage(): Promise<Session | null> {
+  try {
+    const raw = await authStorage.getItem(supabaseStorageKey)
+    if (!raw) return null
+    const stored = JSON.parse(raw) as Partial<Session>
+    if (!stored?.access_token || !stored?.refresh_token) return null
+    const { data, error } = await supabase.auth.setSession({
+      access_token: stored.access_token,
+      refresh_token: stored.refresh_token,
+    })
+    if (error) return null
+    return data.session ?? null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -159,15 +177,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active) return
-      const nextSession = data.session ?? null
+      let nextSession = data.session ?? null
+      if (!nextSession) {
+        nextSession = await restoreSessionFromStorage()
+      }
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
+        await authStorage.setItem(
+          supabaseStorageKey,
+          JSON.stringify(nextSession),
+        )
         await loadContextWithTimeout(nextSession.user.id)
         // Preload routes and warm cache for instant navigation
         preloadCriticalRoutes()
         warmCache(nextSession.access_token)
       } else {
+        await authStorage.removeItem(supabaseStorageKey)
         clearAuth()
       }
       setLoading(false) // ALWAYS called
@@ -178,6 +204,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
+        await authStorage.setItem(
+          supabaseStorageKey,
+          JSON.stringify(nextSession),
+        )
         await loadContextWithTimeout(nextSession.user.id)
         // On sign in, preload routes and warm cache
         if (event === 'SIGNED_IN') {
@@ -185,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           warmCache(nextSession.access_token)
         }
       } else {
+        await authStorage.removeItem(supabaseStorageKey)
         clearAuth()
       }
     })
