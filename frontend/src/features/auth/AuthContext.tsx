@@ -146,6 +146,33 @@ async function restoreSessionFromStorage(): Promise<Session | null> {
   }
 }
 
+const refreshTokenKey = 'crewinventur-refresh-token'
+const accessTokenKey = 'crewinventur-access-token'
+
+async function persistTokens(session: Session) {
+  await authStorage.setItem(refreshTokenKey, session.refresh_token)
+  await authStorage.setItem(accessTokenKey, session.access_token)
+}
+
+async function clearTokens() {
+  await authStorage.removeItem(refreshTokenKey)
+  await authStorage.removeItem(accessTokenKey)
+}
+
+async function refreshSessionFromToken(): Promise<Session | null> {
+  try {
+    const refreshToken = await authStorage.getItem(refreshTokenKey)
+    if (!refreshToken) return null
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token: refreshToken,
+    })
+    if (error) return null
+    return data.session ?? null
+  } catch {
+    return null
+  }
+}
+
 async function restoreSessionWithRetry(
   attempts = 3,
   delayMs = 250,
@@ -197,6 +224,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!nextSession && storedSession) {
         nextSession = await restoreSessionWithRetry()
       }
+      if (!nextSession) {
+        nextSession = await refreshSessionFromToken()
+      }
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
@@ -204,11 +234,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabaseStorageKey,
           JSON.stringify(nextSession),
         )
+        await persistTokens(nextSession)
         await loadContextWithTimeout(nextSession.user.id)
         // Preload routes and warm cache for instant navigation
         preloadCriticalRoutes()
         warmCache(nextSession.access_token)
       } else {
+        await clearTokens()
         clearAuth()
       }
       setLoading(false) // ALWAYS called
@@ -223,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabaseStorageKey,
           JSON.stringify(nextSession),
         )
+        await persistTokens(nextSession)
         await loadContextWithTimeout(nextSession.user.id)
         // On sign in, preload routes and warm cache
         if (event === 'SIGNED_IN') {
@@ -233,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_OUT') {
           await authStorage.removeItem(supabaseStorageKey)
         }
+        await clearTokens()
         clearAuth()
       }
     })

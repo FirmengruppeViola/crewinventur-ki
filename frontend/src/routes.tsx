@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, type RouteObject } from 'react-router-dom'
+import { PublicRoute } from './features/auth/PublicRoute'
 
 // Lazy load wrapper - creates a component that loads on demand
 function lazyLoad(
@@ -78,11 +79,11 @@ const BillingPage = lazyLoad(() => import('./pages/settings/BillingPage'), 'Bill
 // =============================================================================
 
 export const publicRoutes: RouteObject[] = [
-  { path: '/', element: <LandingPage /> },
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
-  { path: '/forgot-password', element: <ForgotPasswordPage /> },
-  { path: '/accept-invite', element: <AcceptInvitePage /> },
+  { path: '/', element: <PublicRoute><LandingPage /></PublicRoute> },
+  { path: '/login', element: <PublicRoute><LoginPage /></PublicRoute> },
+  { path: '/register', element: <PublicRoute><RegisterPage /></PublicRoute> },
+  { path: '/forgot-password', element: <PublicRoute><ForgotPasswordPage /></PublicRoute> },
+  { path: '/accept-invite', element: <PublicRoute><AcceptInvitePage /></PublicRoute> },
   { path: '/terms', element: <TermsPage /> },
   { path: '/privacy', element: <PrivacyPage /> },
   { path: '/imprint', element: <ImprintPage /> },
