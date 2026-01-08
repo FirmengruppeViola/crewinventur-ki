@@ -149,9 +149,9 @@ export function ShelfScanPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center gap-4 bg-background/80 backdrop-blur-xl px-4 py-4 border-b border-border">
+      <header className="flex-shrink-0 flex items-center gap-4 bg-background/80 backdrop-blur-xl px-4 py-4 border-b border-border">
         <button
           onClick={handleBack}
           className="p-2 -ml-2 rounded-xl hover:bg-accent transition-colors"
@@ -176,7 +176,7 @@ export function ShelfScanPage() {
         )}
       </header>
 
-      <div className="p-4">
+      <div className="flex-1 overflow-y-auto p-4">
         {/* Idle / Capture States */}
         {(scanState === 'idle' || scanState === 'capturing') && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
@@ -241,7 +241,7 @@ export function ShelfScanPage() {
 
         {/* Result - Swipe Cards */}
         {scanState === 'result' && currentProduct && (
-          <div className="space-y-6 pb-32">
+          <div className="space-y-6">
             {/* Progress Dots */}
             <div className="flex justify-center gap-1.5">
               {products.map((_, i) => (
@@ -376,31 +376,34 @@ export function ShelfScanPage() {
               )}
             </div>
 
-            {/* Action Buttons - Fixed */}
-            <div className="fixed bottom-20 inset-x-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
-              <div className="flex gap-3 max-w-lg mx-auto">
-                <Button
-                  variant="outline"
-                  className="flex-1 h-14"
-                  onClick={handleSkip}
-                >
-                  <X className="mr-2 h-5 w-5" />
-                  Ueberspringen
-                </Button>
-                <Button
-                  className="flex-1 h-14"
-                  onClick={handleAddCurrent}
-                  loading={addItemMutation.isPending}
-                  disabled={!currentProduct.matched_product}
-                >
-                  <Check className="mr-2 h-5 w-5" />
-                  Hinzufuegen
-                </Button>
-              </div>
-            </div>
           </div>
         )}
       </div>
+
+      {/* Action Buttons - Sticky at bottom */}
+      {scanState === 'result' && currentProduct && (
+        <div className="flex-shrink-0 p-4 bg-background border-t border-border safe-area-bottom">
+          <div className="flex gap-3 max-w-lg mx-auto">
+            <Button
+              variant="outline"
+              className="flex-1 h-14"
+              onClick={handleSkip}
+            >
+              <X className="mr-2 h-5 w-5" />
+              Ueberspringen
+            </Button>
+            <Button
+              className="flex-1 h-14"
+              onClick={handleAddCurrent}
+              loading={addItemMutation.isPending}
+              disabled={!currentProduct.matched_product}
+            >
+              <Check className="mr-2 h-5 w-5" />
+              Hinzufuegen
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,10 +1,35 @@
 import base64
 import logging
 
+from pydantic import ValidationError
+
 from app.core.gemini import generate_json, ThinkingLevel
 from app.schemas.gemini_responses import ProductRecognitionResponse
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_validate_product(data: dict) -> ProductRecognitionResponse:
+    """
+    Safely validate product recognition data.
+    Returns a low-confidence fallback if validation fails.
+    """
+    try:
+        return ProductRecognitionResponse.model_validate(data)
+    except ValidationError as e:
+        logger.warning(f"Product validation failed, using fallback: {e}")
+        # Return a fallback with whatever data we can extract
+        return ProductRecognitionResponse(
+            brand=str(data.get("brand", "")) if data.get("brand") else "",
+            product_name=str(data.get("product_name", "")) or "Nicht erkannt",
+            variant=str(data.get("variant")) if data.get("variant") else None,
+            size_ml=data.get("size_ml") if isinstance(data.get("size_ml"), int) else None,
+            size_display=str(data.get("size_display")) if data.get("size_display") else None,
+            category=str(data.get("category", "Unbekannt")) or "Unbekannt",
+            packaging=str(data.get("packaging")) if data.get("packaging") else None,
+            confidence=0.1,  # Low confidence for fallback
+            barcode=str(data.get("barcode")) if data.get("barcode") else None,
+        )
 
 
 def _build_prompt(categories: list[str]) -> str:
@@ -38,7 +63,6 @@ def recognize_product(
 
     Raises:
         GeminiError: When AI processing fails
-        ValidationError: When response doesn't match schema
     """
     logger.info(f"Recognizing single product, categories={len(categories)}")
 
@@ -52,7 +76,7 @@ def recognize_product(
         thinking_level=ThinkingLevel.MINIMAL,
     )
 
-    result = ProductRecognitionResponse.model_validate(data)
+    result = _safe_validate_product(data)
     logger.info(f"Product recognized: {result.brand} {result.product_name}, confidence={result.confidence}")
     return result
 
@@ -98,6 +122,6 @@ def recognize_multiple_products(
         logger.warning("Response was not a list, returning empty")
         items = []
 
-    results = [ProductRecognitionResponse.model_validate(item) for item in items]
+    results = [_safe_validate_product(item) for item in items if isinstance(item, dict)]
     logger.info(f"Recognized {len(results)} products")
     return results

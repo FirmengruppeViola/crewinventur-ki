@@ -10,7 +10,6 @@ import base64
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
-from pydantic import ValidationError
 
 from app.api.deps import get_current_user
 from app.core.gemini import GeminiError
@@ -174,13 +173,7 @@ async def scan_for_inventory(
         logger.error(f"AI recognition failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {e}",
-        ) from e
-    except ValidationError as e:
-        logger.error(f"AI response validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI returned invalid response format",
+            detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
     # Check if product exists in user's database
@@ -292,13 +285,7 @@ async def scan_shelf_for_inventory(
         logger.error(f"AI shelf scan failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {e}",
-        ) from e
-    except ValidationError as e:
-        logger.error(f"AI response validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI returned invalid response format",
+            detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
     # Process each recognized product

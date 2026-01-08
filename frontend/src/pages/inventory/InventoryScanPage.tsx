@@ -132,9 +132,9 @@ export function InventoryScanPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center gap-4 bg-background/80 backdrop-blur-xl px-4 py-4 border-b border-border">
+      <header className="flex-shrink-0 flex items-center gap-4 bg-background/80 backdrop-blur-xl px-4 py-4 border-b border-border">
         <button
           onClick={handleBack}
           className="p-2 -ml-2 rounded-xl hover:bg-accent transition-colors"
@@ -147,7 +147,7 @@ export function InventoryScanPage() {
         </div>
       </header>
 
-      <div className="p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Scan States */}
         {scanState === 'idle' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
@@ -211,7 +211,7 @@ export function InventoryScanPage() {
         )}
 
         {scanState === 'result' && scanResult && (
-          <div className="space-y-6 pb-32">
+          <div className="space-y-6">
             {/* Recognized Product Card */}
             <Card className="p-5 space-y-4">
               <div className="flex items-start gap-4">
@@ -365,34 +365,38 @@ export function InventoryScanPage() {
               </div>
             </Card>
 
-            {/* Action Buttons - Fixed at bottom */}
-            <div className="fixed bottom-20 inset-x-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
-              <div className="flex gap-3 max-w-lg mx-auto">
-                <Button
-                  variant="outline"
-                  className="flex-1 h-14"
-                  onClick={handleCapture}
-                >
-                  <Camera className="mr-2 h-5 w-5" />
-                  Neues Foto
-                </Button>
-                <Button
-                  className="flex-1 h-14"
-                  onClick={() =>
-                    scanResult.duplicate_in_session
-                      ? setShowDuplicateModal(true)
-                      : handleAddItem()
-                  }
-                  loading={addItemMutation.isPending}
-                >
-                  <Check className="mr-2 h-5 w-5" />
-                  Hinzufuegen
-                </Button>
-              </div>
-            </div>
           </div>
         )}
       </div>
+
+      {/* Action Buttons - Sticky at bottom, only shown in result state */}
+      {scanState === 'result' && scanResult && (
+        <div className="flex-shrink-0 p-4 bg-background border-t border-border safe-area-bottom">
+          <div className="flex gap-3 max-w-lg mx-auto">
+            <Button
+              variant="outline"
+              className="flex-1 h-14"
+              onClick={handleCapture}
+            >
+              <Camera className="mr-2 h-5 w-5" />
+              Neues Foto
+            </Button>
+            <Button
+              className="flex-1 h-14"
+              onClick={() =>
+                scanResult.duplicate_in_session
+                  ? setShowDuplicateModal(true)
+                  : handleAddItem()
+              }
+              loading={addItemMutation.isPending}
+              disabled={!scanResult.matched_product}
+            >
+              <Check className="mr-2 h-5 w-5" />
+              Hinzufuegen
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Duplicate Modal */}
       <BottomSheet
