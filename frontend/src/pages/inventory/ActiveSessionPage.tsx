@@ -28,10 +28,10 @@ import { useUiStore } from '../../stores/uiStore'
 
 type ItemRowProps = {
   productName: string
-  quantity: number
+  quantity: number | null
   fullQuantity?: number | null
   partialQuantity?: number | null
-  unitPrice: number
+  unitPrice: number | null
   totalPrice?: number | null
   onDelete: () => void
 }
@@ -49,7 +49,7 @@ function ItemRow({
     ? partialQuantity
       ? `${fullQuantity} + ${(partialQuantity * 100).toFixed(0)}%`
       : fullQuantity.toString()
-    : quantity.toString()
+    : (quantity ?? 0).toString()
 
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/50 last:border-0">
@@ -59,11 +59,11 @@ function ItemRow({
       <div className="flex-1 min-w-0">
         <p className="font-medium text-foreground truncate">{productName}</p>
         <p className="text-sm text-muted-foreground">
-          {unitPrice.toFixed(2)} EUR × {displayQty}
+          {(unitPrice ?? 0).toFixed(2)} EUR × {displayQty}
         </p>
       </div>
       <div className="text-right">
-        <p className="font-semibold">{(totalPrice || quantity * unitPrice).toFixed(2)} EUR</p>
+        <p className="font-semibold">{(totalPrice ?? (quantity ?? 0) * (unitPrice ?? 0)).toFixed(2)} EUR</p>
         <div className="flex items-center gap-1 mt-1">
           <button
             onClick={onDelete}
@@ -168,7 +168,7 @@ export function ActiveSessionPage() {
               className="text-xl font-bold truncate"
               style={{ viewTransitionName: `inventory-session-${session.id}` }}
             >
-              {location.data?.name || session.name || 'Inventur'}
+              {location?.data?.name || session.name || 'Inventur'}
             </h1>
             <p className="text-xs text-muted-foreground">
               {items?.length || 0} Produkte · {session.total_value.toFixed(2)} EUR

@@ -135,7 +135,7 @@ export function SessionSummaryPage() {
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Summary: {location.data?.name || 'Inventur'}
+            Summary: {location?.data?.name || 'Inventur'}
           </h1>
           <p className="text-sm text-muted-foreground">
             Abgeschlossen am {session.completed_at || '-'}
@@ -203,7 +203,7 @@ export function SessionSummaryPage() {
                 <div key={item.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
                   <p className="font-medium text-foreground">{product?.name || 'Unbekannt'}</p>
                   <p className="text-sm text-muted-foreground">
-                    Menge: {item.quantity} · Differenz:{' '}
+                    Menge: {item.quantity ?? '-'} · Differenz:{' '}
                     <span className={item.quantity_difference && item.quantity_difference !== 0 ? 'text-amber-500' : 'text-muted-foreground'}>
                       {item.quantity_difference ?? '-'}
                     </span>

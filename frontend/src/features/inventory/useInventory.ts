@@ -19,9 +19,9 @@ export type InventoryItem = {
   id: string
   session_id: string
   product_id: string
-  quantity: number
-  unit_price: number
-  total_price: number
+  quantity: number | null
+  unit_price: number | null
+  total_price: number | null
   previous_quantity: number | null
   quantity_difference: number | null
   notes?: string | null
