@@ -2,14 +2,14 @@ from pydantic import BaseModel, Field
 
 
 class ProductRecognitionResponse(BaseModel):
-    brand: str
-    product_name: str
+    brand: str = ""
+    product_name: str = ""
     variant: str | None = None
-    size_ml: int
-    size_display: str
-    category: str
+    size_ml: int | None = None
+    size_display: str | None = None
+    category: str = "Unbekannt"
     packaging: str | None = None
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     barcode: str | None = None
 
 
