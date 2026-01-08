@@ -194,12 +194,19 @@ async def scan_for_inventory(
             supabase, session_id, existing_product["id"]
         )
 
+    # Check if category needs user confirmation
+    needs_category = (
+        recognition.category == "Unbekannt" or
+        recognition.confidence < 0.8
+    )
+
     return ScanResult(
         recognized_product=recognition.model_dump(),
         matched_product=existing_product,
         is_new=is_new,
         duplicate_in_session=duplicate_in_session,
-        suggested_quantity=1,  # Single scan defaults to 1
+        suggested_quantity=None,  # User enters manually
+        needs_category=needs_category,
     )
 
 
@@ -305,15 +312,19 @@ async def scan_shelf_for_inventory(
                 supabase, session_id, existing_product["id"]
             )
 
-        # Use visible_count from recognition if available (Gemini's quantity estimate)
-        suggested_qty = getattr(recognition, 'visible_count', 1) or 1
+        # Check if category needs user confirmation
+        needs_category = (
+            recognition.category == "Unbekannt" or
+            recognition.confidence < 0.8
+        )
 
         results.append(ScanResult(
             recognized_product=recognition.model_dump(),
             matched_product=existing_product,
             is_new=is_new,
             duplicate_in_session=duplicate_in_session,
-            suggested_quantity=suggested_qty,
+            suggested_quantity=None,  # User enters manually
+            needs_category=needs_category,
         ))
 
     return ShelfScanResult(

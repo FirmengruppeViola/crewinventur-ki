@@ -101,7 +101,8 @@ class ScanResult(BaseModel):
     matched_product: dict | None = None  # Existing product from DB
     is_new: bool = True
     duplicate_in_session: dict | None = None  # If product already in this session
-    suggested_quantity: int | None = None  # AI-suggested count (for shelf scan)
+    suggested_quantity: int | None = None  # Not used anymore - user enters manually
+    needs_category: bool = False  # True when AI is unsure about category
 
 
 class ShelfScanResult(BaseModel):

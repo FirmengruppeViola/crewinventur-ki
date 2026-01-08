@@ -7,7 +7,8 @@ if (!API_BASE_URL) {
   throw new Error('VITE_API_BASE_URL missing for this build')
 }
 
-const DEFAULT_TIMEOUT_MS = 8000
+const DEFAULT_TIMEOUT_MS = 15000
+export const SCAN_TIMEOUT_MS = 60000 // Längerer Timeout für KI-Scans
 
 function normalizeNetworkError(error: unknown): Error {
   if (error instanceof Error) {
@@ -36,6 +37,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   accessToken?: string | null,
+  timeout: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const headers = new Headers(options.headers)
   const method = (options.method ?? 'GET').toUpperCase()
@@ -55,8 +57,8 @@ export async function apiRequest<T>(
         method,
         headers: Object.fromEntries(headers.entries()),
         data: hasBody ? parseJsonBody(options.body) : undefined,
-        connectTimeout: DEFAULT_TIMEOUT_MS,
-        readTimeout: DEFAULT_TIMEOUT_MS,
+        connectTimeout: timeout,
+        readTimeout: timeout,
       })
 
       if (response.status < 200 || response.status >= 300) {
@@ -78,7 +80,7 @@ export async function apiRequest<T>(
   const controller = new AbortController()
   const timeoutId = window.setTimeout(
     () => controller.abort(),
-    DEFAULT_TIMEOUT_MS,
+    timeout,
   )
 
   try {
@@ -109,6 +111,7 @@ export async function apiUpload<T>(
   path: string,
   formData: FormData,
   accessToken?: string | null,
+  timeout: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
   const headers = new Headers()
   if (accessToken) {
@@ -118,7 +121,7 @@ export async function apiUpload<T>(
   const controller = new AbortController()
   const timeoutId = window.setTimeout(
     () => controller.abort(),
-    DEFAULT_TIMEOUT_MS,
+    timeout,
   )
 
   try {

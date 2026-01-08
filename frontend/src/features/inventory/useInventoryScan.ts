@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiRequest, apiUpload } from '../../lib/api'
+import { apiRequest, apiUpload, SCAN_TIMEOUT_MS } from '../../lib/api'
 import { useAuth } from '../auth/useAuth'
 
 // =====================================================
@@ -45,6 +45,7 @@ export type ScanResult = {
   is_new: boolean
   duplicate_in_session: DuplicateInSession | null
   suggested_quantity: number | null
+  needs_category: boolean  // True when AI is unsure about category
 }
 
 export type ShelfScanResult = {
@@ -91,6 +92,7 @@ export function useInventoryScan(sessionId: string) {
           `/api/v1/inventory/sessions/${sessionId}/scan`,
           formData,
           token,
+          SCAN_TIMEOUT_MS,
         )
       }
 
@@ -105,6 +107,7 @@ export function useInventoryScan(sessionId: string) {
           }),
         },
         token,
+        SCAN_TIMEOUT_MS,
       )
     },
   })
@@ -130,6 +133,7 @@ export function useShelfScan(sessionId: string) {
           `/api/v1/inventory/sessions/${sessionId}/scan-shelf`,
           formData,
           token,
+          SCAN_TIMEOUT_MS,
         )
       }
 
@@ -143,6 +147,7 @@ export function useShelfScan(sessionId: string) {
           }),
         },
         token,
+        SCAN_TIMEOUT_MS,
       )
     },
   })
