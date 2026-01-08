@@ -18,6 +18,7 @@ import { SessionSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { useLocation as useLocationData } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
+import { useCategories } from '../../features/products/useCategories'
 import {
   useAddSessionItem,
   useCompleteInventorySession,
@@ -86,10 +87,14 @@ export function ActiveSessionPage() {
   const { data: session, isLoading } = useInventorySession(sessionId)
   const { data: items } = useSessionItems(sessionId)
   const { data: products } = useProducts()
+  const { data: categories } = useCategories()
   const completeSession = useCompleteInventorySession(sessionId)
   const addItem = useAddSessionItem(sessionId)
 
   const location = useLocationData(session?.location_id)
+
+  // Sort/Group state
+  const [sortBy, setSortBy] = useState<'category' | 'scanned'>('scanned')
 
   // Manual add form
   const [showManualAdd, setShowManualAdd] = useState(false)
@@ -106,6 +111,27 @@ export function ActiveSessionPage() {
   const productMap = useMemo(() => {
     return new Map(products?.map((product) => [product.id, product]) ?? [])
   }, [products])
+
+  const categoryMap = useMemo(() => {
+    return new Map(categories?.map((cat) => [cat.id, cat.name]) ?? [])
+  }, [categories])
+
+  // Group items by category or keep flat
+  const groupedItems = useMemo(() => {
+    if (!items || items.length === 0) return {}
+    if (sortBy === 'scanned') {
+      return { 'Alle Produkte': items }
+    }
+    return items.reduce((acc, item) => {
+      const product = productMap.get(item.product_id)
+      const categoryName = product?.category_id
+        ? categoryMap.get(product.category_id) || 'Sonstiges'
+        : 'Sonstiges'
+      if (!acc[categoryName]) acc[categoryName] = []
+      acc[categoryName].push(item)
+      return acc
+    }, {} as Record<string, typeof items>)
+  }, [items, productMap, categoryMap, sortBy])
 
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
@@ -183,6 +209,31 @@ export function ActiveSessionPage() {
             Manuell
           </Button>
         </div>
+        {/* Sort Toggle */}
+        {items && items.length > 0 && (
+          <div className="flex gap-1 px-4 pb-3">
+            <button
+              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                sortBy === 'scanned'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-accent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setSortBy('scanned')}
+            >
+              Reihenfolge
+            </button>
+            <button
+              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                sortBy === 'category'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-accent text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setSortBy('category')}
+            >
+              Kategorie
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Items List */}
@@ -208,28 +259,37 @@ export function ActiveSessionPage() {
         </div>
 
         {items && items.length > 0 ? (
-          <Card className="p-4">
-            {items.map((item) => {
-              const product = productMap.get(item.product_id)
-              return (
-                <ItemRow
-                  key={item.id}
-                  productName={product?.name || 'Unbekannt'}
-                  quantity={item.quantity}
-                  fullQuantity={(item as any).full_quantity}
-                  partialQuantity={(item as any).partial_quantity}
-                  unitPrice={item.unit_price}
-                  totalPrice={item.total_price}
-                  onDelete={() => {
-                    // Direct delete with confirmation
-                    if (confirm('Produkt entfernen?')) {
-                      // We'll handle this via mutation
-                    }
-                  }}
-                />
-              )
-            })}
-          </Card>
+          <div className="space-y-3">
+            {Object.entries(groupedItems).map(([category, categoryItems]) => (
+              <Card key={category} className="p-4">
+                {sortBy === 'category' && (
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2 px-1">
+                    {category} ({categoryItems.length})
+                  </h3>
+                )}
+                {categoryItems.map((item) => {
+                  const product = productMap.get(item.product_id)
+                  return (
+                    <ItemRow
+                      key={item.id}
+                      productName={product?.name || 'Unbekannt'}
+                      quantity={item.quantity}
+                      fullQuantity={(item as any).full_quantity}
+                      partialQuantity={(item as any).partial_quantity}
+                      unitPrice={item.unit_price}
+                      totalPrice={item.total_price}
+                      onDelete={() => {
+                        // Direct delete with confirmation
+                        if (confirm('Produkt entfernen?')) {
+                          // We'll handle this via mutation
+                        }
+                      }}
+                    />
+                  )
+                })}
+              </Card>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="p-6 rounded-3xl bg-accent/50 mb-4">

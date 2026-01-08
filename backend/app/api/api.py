@@ -12,6 +12,7 @@ from app.api.endpoints import (
     products,
     profile,
     team,
+    unit_sizes,
 )
 
 api_router = APIRouter()
@@ -28,3 +29,4 @@ api_router.include_router(export.router, tags=["export"])
 api_router.include_router(bundles.router, tags=["bundles"])
 api_router.include_router(team.router, prefix="/team", tags=["team"])
 api_router.include_router(billing.router, tags=["billing"])
+api_router.include_router(unit_sizes.router, tags=["unit-sizes"])
