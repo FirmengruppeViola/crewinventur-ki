@@ -12,11 +12,11 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-3-flash-preview"
+MODEL_NAME = "gemini-2.0-flash"
 
 
 class ThinkingLevel(str, Enum):
-    """Thinking levels for Gemini 3 API - controls reasoning depth."""
+    """Thinking levels - kept for API compatibility but not used in generation config."""
     MINIMAL = "minimal"  # Fast, simple tasks (single product recognition)
     LOW = "low"          # Multiple items (shelf scan)
     MEDIUM = "medium"    # Analysis tasks (inventory comparison)
@@ -143,7 +143,6 @@ def generate_json(
 
     generation_config: dict[str, Any] = {
         "response_mime_type": "application/json",
-        "thinking_level": thinking_level.value,
     }
 
     try:

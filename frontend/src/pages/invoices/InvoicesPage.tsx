@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
-import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice } from '../../features/invoices/useInvoices'
+import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice, type Invoice, type InvoiceItem } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
 
 const ONBOARDING_DISMISSED_KEY = 'crewinventur-invoice-onboarding-dismissed'
@@ -64,7 +64,7 @@ export function InvoicesPage() {
   })
 
   // Sheet State
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   // Multi-Upload State
   const [uploadProgress, setUploadProgress] = useState<{
@@ -295,7 +295,7 @@ export function InvoicesPage() {
 }
 
 // Sub-Component for Detail Logic to keep main component clean
-function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: any, isOpen: boolean, onClose: () => void }) {
+function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: Invoice | null, isOpen: boolean, onClose: () => void }) {
   const addToast = useUiStore((state) => state.addToast)
   const processInvoice = useProcessInvoice(invoice?.id || '')
   // We fetch items only when sheet is open and invoice exists
@@ -348,7 +348,7 @@ function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: any, isOpen
              <h3 className="text-sm font-medium text-muted-foreground">Positionen ({items?.length || 0})</h3>
              {items && items.length > 0 ? (
                <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                 {items.map((item: any) => (
+                 {items.map((item: InvoiceItem) => (
                     <div key={item.id} className="flex justify-between text-sm border-b border-border/50 pb-2">
                        <span className="text-foreground truncate max-w-[70%]">{item.product_name}</span>
                        <span className="text-muted-foreground">{Number(item.unit_price).toFixed(2)} €</span>

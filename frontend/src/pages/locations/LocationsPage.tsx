@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Textarea } from '../../components/ui/Textarea'
 import { BottomSheet } from '../../components/ui/BottomSheet'
-import { useLocations, useDeleteLocation, useUpdateLocation, useCreateLocation } from '../../features/locations/useLocations'
+import { useLocations, useDeleteLocation, useUpdateLocation, useCreateLocation, type Location } from '../../features/locations/useLocations'
 import { useUiStore } from '../../stores/uiStore'
 import { useDelayedFlag } from '../../hooks/useDelayedFlag'
 
@@ -38,7 +38,7 @@ export function LocationsPage() {
     setSelectedLocationId(null)
   }
 
-  const handleOpenDetail = (location: any) => {
+  const handleOpenDetail = (location: Location) => {
     setFormData({ name: location.name, description: location.description || '' })
     setSelectedLocationId(location.id)
     setIsCreating(false)

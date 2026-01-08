@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { ListPageSkeleton } from '../../components/ui/Skeleton'
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../../features/products/useProducts'
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, type Product } from '../../features/products/useProducts'
 import { useCategories } from '../../features/products/useCategories'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -54,7 +54,7 @@ export function ProductsPage() {
     setSelectedProductId(null)
   }
 
-  const handleOpenDetail = (product: any) => {
+  const handleOpenDetail = (product: Product) => {
     setFormData({ 
       name: product.name, 
       brand: product.brand || '', 

@@ -3,14 +3,16 @@ import { AuthProvider } from './features/auth/AuthContext'
 import { ProtectedRoute } from './features/auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { ToastHost } from './components/ui/Toast'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { publicRoutes, protectedRoutes, fallbackRoute } from './routes'
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ToastHost />
-        <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastHost />
+          <Routes>
           {/* Public routes - no auth required */}
           {publicRoutes.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
@@ -27,9 +29,10 @@ function App() {
 
           {/* Fallback */}
           <Route path={fallbackRoute.path} element={fallbackRoute.element} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

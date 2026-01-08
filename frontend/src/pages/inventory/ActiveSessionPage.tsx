@@ -7,6 +7,8 @@ import {
   Plus,
   Trash2,
   Check,
+  Camera,
+  Grid3X3,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -185,6 +187,26 @@ export function ActiveSessionPage() {
 
       {/* Items List */}
       <div className="p-4 space-y-4">
+        {/* Scan Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="h-14"
+            onClick={() => navigate(`/inventory/sessions/${sessionId}/scan`)}
+          >
+            <Camera className="mr-2 h-5 w-5" />
+            Einzelscan
+          </Button>
+          <Button
+            variant="outline"
+            className="h-14"
+            onClick={() => navigate(`/inventory/sessions/${sessionId}/shelf-scan`)}
+          >
+            <Grid3X3 className="mr-2 h-5 w-5" />
+            Regal-Scan
+          </Button>
+        </div>
+
         {items && items.length > 0 ? (
           <Card className="p-4">
             {items.map((item) => {
@@ -215,7 +237,7 @@ export function ActiveSessionPage() {
             </div>
             <h3 className="text-lg font-semibold">Noch keine Produkte</h3>
             <p className="text-muted-foreground mt-1">
-              Tippe unten in der Navigation auf den Scan-Button
+              Nutze die Scan-Buttons oben um Produkte zu erfassen
             </p>
           </div>
         )}

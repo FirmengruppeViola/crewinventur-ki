@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiRequest } from '../../lib/api'
+import { useAuth } from '../auth/useAuth'
 
 export type TeamMember = {
   id: string
@@ -31,10 +32,14 @@ export type TeamMemberUpdate = {
 // Fetch all team members
 export function useTeamMembers() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
   const queryKey = ['team', 'members']
   return useQuery({
     queryKey,
-    queryFn: () => apiRequest<TeamMember[]>('/api/v1/team/members'),
+    queryFn: () =>
+      apiRequest<TeamMember[]>('/api/v1/team/members', { method: 'GET' }, token),
+    enabled: Boolean(token),
     placeholderData: () =>
       queryClient.getQueryData<TeamMember[]>(queryKey),
   })
@@ -43,11 +48,14 @@ export function useTeamMembers() {
 // Fetch single team member
 export function useTeamMember(id: string) {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
   const queryKey = ['team', 'members', id]
   return useQuery({
     queryKey,
-    queryFn: () => apiRequest<TeamMember>(`/api/v1/team/members/${id}`),
-    enabled: !!id,
+    queryFn: () =>
+      apiRequest<TeamMember>(`/api/v1/team/members/${id}`, { method: 'GET' }, token),
+    enabled: Boolean(token && id),
     placeholderData: () =>
       id ? queryClient.getQueryData<TeamMember>(queryKey) : undefined,
   })
@@ -56,13 +64,16 @@ export function useTeamMember(id: string) {
 // Invite new team member
 export function useInviteTeamMember() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
 
   return useMutation({
     mutationFn: (data: TeamMemberCreate) =>
-      apiRequest<TeamMember>('/api/v1/team/invite', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      apiRequest<TeamMember>(
+        '/api/v1/team/invite',
+        { method: 'POST', body: JSON.stringify(data) },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', 'members'] })
     },
@@ -72,13 +83,16 @@ export function useInviteTeamMember() {
 // Update team member
 export function useUpdateTeamMember() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
 
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: TeamMemberUpdate }) =>
-      apiRequest<TeamMember>(`/api/v1/team/members/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+      apiRequest<TeamMember>(
+        `/api/v1/team/members/${id}`,
+        { method: 'PUT', body: JSON.stringify(data) },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', 'members'] })
     },
@@ -88,12 +102,16 @@ export function useUpdateTeamMember() {
 // Deactivate team member
 export function useDeactivateTeamMember() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiRequest<TeamMember>(`/api/v1/team/members/${id}/deactivate`, {
-        method: 'POST',
-      }),
+      apiRequest<TeamMember>(
+        `/api/v1/team/members/${id}/deactivate`,
+        { method: 'POST' },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', 'members'] })
     },
@@ -103,12 +121,16 @@ export function useDeactivateTeamMember() {
 // Reactivate team member
 export function useReactivateTeamMember() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiRequest<TeamMember>(`/api/v1/team/members/${id}/reactivate`, {
-        method: 'POST',
-      }),
+      apiRequest<TeamMember>(
+        `/api/v1/team/members/${id}/reactivate`,
+        { method: 'POST' },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', 'members'] })
     },
@@ -118,12 +140,16 @@ export function useReactivateTeamMember() {
 // Regenerate invitation code
 export function useRegenerateCode() {
   const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiRequest<TeamMember>(`/api/v1/team/members/${id}/regenerate-code`, {
-        method: 'POST',
-      }),
+      apiRequest<TeamMember>(
+        `/api/v1/team/members/${id}/regenerate-code`,
+        { method: 'POST' },
+        token,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', 'members'] })
     },

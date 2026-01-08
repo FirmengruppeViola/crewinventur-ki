@@ -3,7 +3,7 @@ import { ArrowRight, MapPin, Package, Play, History } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useLocations } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
-import { useInventorySessions } from '../../features/inventory/useInventory'
+import { useInventorySessions, type InventorySession } from '../../features/inventory/useInventory'
 
 export function DashboardPage() {
   const { data: locations } = useLocations()
@@ -80,7 +80,7 @@ export function DashboardPage() {
           
           <div className="space-y-3">
              {sessions && sessions.length > 0 ? (
-               sessions.slice(0, 2).map((session: any) => (
+               sessions.slice(0, 2).map((session: InventorySession) => (
                  <div key={session.id} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Session #{session.id.slice(0,4)}</span>
                     <span className="font-medium text-emerald-500">Abgeschlossen</span>
