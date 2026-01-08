@@ -4,6 +4,12 @@ Product Recognition Service using Gemini 3 Flash.
 Provides AI-powered product recognition for:
 - Single product scans (fast, MINIMAL thinking)
 - Shelf scans with multiple products (MEDIUM thinking)
+
+Prompts follow Gemini 3 best practices:
+- Structured with XML tags
+- Clear persona and context
+- Few-shot examples
+- Constraints at the end
 """
 
 import base64
@@ -20,28 +26,113 @@ logger = logging.getLogger(__name__)
 
 
 def _build_single_prompt(categories: list[str]) -> str:
-    """Build prompt for single product recognition."""
+    """Build optimized prompt for single product recognition."""
     categories_text = ", ".join(categories) if categories else "Unbekannt"
-    return (
-        "Analysiere das Produkt auf dem Bild. "
-        "Erkenne Marke, Name, Variante, Groesse und Kategorie. "
-        f"Kategorie MUSS eine der folgenden sein: {categories_text}. "
-        "confidence ist deine Sicherheit von 0.0 bis 1.0. "
-        "size_display ist z.B. '0.33l', '500ml', '1L'. "
-        "barcode nur falls auf dem Bild sichtbar, sonst null."
-    )
+
+    return f"""<role>
+Du bist ein Experte fuer Getraenke- und Lebensmittel-Erkennung in der deutschen Gastronomie.
+Du arbeitest fuer ein Inventur-System das Gastronomen hilft, ihren Warenbestand zu erfassen.
+</role>
+
+<context>
+Ein Gastronom fotografiert ein einzelnes Produkt (Flasche, Dose, Packung) fuer seine Inventur.
+Das Foto zeigt typischerweise ein Etikett mit Marke, Produktname und Groessenangabe.
+Korrekte Erkennung ist geschaeftskritisch fuer die Bestandsfuehrung.
+</context>
+
+<task>
+Analysiere das Produktbild und extrahiere alle erkennbaren Informationen.
+</task>
+
+<examples>
+Beispiel 1 - Spirituose:
+Bild zeigt gruene Flasche mit Hirsch-Logo
+Ergebnis: brand="Jaegermeister", product_name="Kraeuterlikor", size_display="0,7l", category="Spirituosen", confidence=0.95
+
+Beispiel 2 - Softdrink:
+Bild zeigt rote Dose mit weissem Schriftzug
+Ergebnis: brand="Coca-Cola", product_name="Coca-Cola Classic", size_display="0,33l", category="Softdrinks", confidence=0.92
+
+Beispiel 3 - Bier:
+Bild zeigt braune Flasche, blaues Etikett, bayerisches Wappen
+Ergebnis: brand="Paulaner", product_name="Weissbier", variant="Hefe-Weissbier", size_display="0,5l", category="Bier", confidence=0.88
+</examples>
+
+<output_fields>
+- brand: Markenname (Hersteller)
+- product_name: Produktbezeichnung (NIEMALS leer lassen!)
+- variant: Variante falls erkennbar (z.B. "Zero", "Light", "Naturtrub")
+- size_ml: Groesse in Millilitern als Zahl (z.B. 500, 700, 1000)
+- size_display: Groesse lesbar (z.B. "0,5l", "330ml", "1L")
+- category: Produktkategorie
+- packaging: Verpackung (Flasche, Dose, Kasten, Fass, Tetra, PET)
+- confidence: Deine Sicherheit 0.0-1.0
+- barcode: EAN falls sichtbar, sonst null
+
+WICHTIG fuer product_name:
+- Bei teilweise erkennbarem Produkt: Beste Schaetzung + niedrige confidence
+- Bei unerkennbarem Produkt: "Unbekanntes Produkt" + confidence unter 0.3
+- NIEMALS leeren String zurueckgeben!
+</output_fields>
+
+<constraints>
+- category MUSS exakt eine dieser sein: {categories_text}
+- Bei unleserlichem/verdecktem Text: confidence unter 0.5 setzen
+- Barcode NUR wenn tatsaechlich lesbare Ziffern sichtbar sind
+- Deutsche Produktnamen bevorzugen
+- Bei Unsicherheit: Lieber niedrige confidence als falsches Ergebnis
+</constraints>"""
 
 
 def _build_shelf_prompt(categories: list[str]) -> str:
-    """Build prompt for shelf/multi-product recognition."""
+    """Build optimized prompt for shelf/multi-product recognition."""
     categories_text = ", ".join(categories) if categories else "Unbekannt"
-    return (
-        "Erkenne ALLE sichtbaren Produkte auf dem Bild (Regal/Theke). "
-        "Fuer jedes Produkt: Marke, Name, Variante, Groesse, Kategorie. "
-        f"Kategorie MUSS eine der folgenden sein: {categories_text}. "
-        "confidence ist deine Sicherheit pro Produkt (0.0-1.0). "
-        "Zaehle wie viele von jedem Produkt sichtbar sind falls moeglich."
-    )
+
+    return f"""<role>
+Du bist ein Experte fuer Getraenke-Erkennung mit Fokus auf Mengenerfassung.
+Du analysierst Regalfotos fuer ein Gastronomie-Inventursystem.
+</role>
+
+<context>
+Ein Gastronom fotografiert ein Regal, eine Kuehltheke oder einen Getraenkebereich.
+Das Bild enthaelt MEHRERE verschiedene Produkte, oft in unterschiedlichen Mengen.
+Ziel ist die schnelle Erfassung des gesamten sichtbaren Bestands.
+</context>
+
+<task>
+1. Identifiziere JEDES einzelne erkennbare Produkt im Bild
+2. Fuer jedes Produkt einen separaten Eintrag erstellen
+3. Auch teilweise sichtbare Produkte erfassen wenn erkennbar
+</task>
+
+<examples>
+Beispiel - Kuehlregal:
+Bild zeigt: Mehrere Paulaner Weissbier, einige Augustiner, zwei Erdinger
+
+Ergebnis: 3 separate Eintraege:
+1. brand="Paulaner", product_name="Weissbier", size_display="0,5l", category="Bier", confidence=0.9
+2. brand="Augustiner", product_name="Helles", size_display="0,5l", category="Bier", confidence=0.85
+3. brand="Erdinger", product_name="Weissbier Dunkel", size_display="0,5l", category="Bier", confidence=0.8
+</examples>
+
+<output_fields>
+Fuer JEDES erkannte Produkt:
+- brand, product_name, variant, size_ml, size_display, category, packaging
+- confidence: Erkennungssicherheit fuer dieses spezifische Produkt
+- barcode: nur falls lesbar
+
+WICHTIG:
+- Jedes unterschiedliche Produkt = ein Eintrag
+- Gleiche Produkte NICHT mehrfach auflisten
+- Bei teilweise verdeckten: Beste Schaetzung + niedrigere confidence
+</output_fields>
+
+<constraints>
+- category MUSS eine dieser sein: {categories_text}
+- Auch teilweise verdeckte Produkte erfassen wenn erkennbar
+- Bei Unsicherheit: niedrige confidence, aber trotzdem erfassen
+- Leere Liste nur wenn KEIN Produkt erkennbar
+</constraints>"""
 
 
 def recognize_product(
@@ -80,6 +171,12 @@ def recognize_product(
     )
 
     result = ProductRecognitionResponse.model_validate(data)
+
+    # Ensure product_name is never empty
+    if not result.product_name or result.product_name.strip() == "":
+        result.product_name = "Unbekanntes Produkt"
+        result.confidence = min(result.confidence, 0.2)
+
     logger.info(
         f"Product recognized: {result.brand} {result.product_name}, "
         f"confidence={result.confidence}"
@@ -122,6 +219,14 @@ def recognize_multiple_products(
         thinking_level=ThinkingLevel.MEDIUM,
     )
 
-    results = [ProductRecognitionResponse.model_validate(item) for item in items]
+    results = []
+    for item in items:
+        result = ProductRecognitionResponse.model_validate(item)
+        # Ensure product_name is never empty
+        if not result.product_name or result.product_name.strip() == "":
+            result.product_name = "Unbekanntes Produkt"
+            result.confidence = min(result.confidence, 0.2)
+        results.append(result)
+
     logger.info(f"Recognized {len(results)} products from shelf scan")
     return results

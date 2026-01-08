@@ -12,6 +12,8 @@ import {
   Sparkles,
   Package,
   RefreshCw,
+  Search,
+  HelpCircle,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -46,6 +48,9 @@ export function InventoryScanPage() {
 
   // Duplicate modal
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+
+  // Manual product selection (when AI fails)
+  const [showManualSelect, setShowManualSelect] = useState(false)
 
   const handleCapture = async () => {
     setScanState('capturing')
@@ -212,6 +217,41 @@ export function InventoryScanPage() {
 
         {scanState === 'result' && scanResult && (
           <div className="space-y-6">
+            {/* Warning: Product not matched */}
+            {!scanResult.matched_product && (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <HelpCircle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-400">Produkt nicht in Datenbank</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Die KI hat das Produkt erkannt, aber es existiert noch nicht in deiner Produktliste.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setShowManualSelect(true)}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Manuell suchen
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Warning: Low confidence */}
+            {scanResult.recognized_product.confidence < 0.5 && scanResult.matched_product && (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-400">Niedrige Erkennungssicherheit</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Die KI ist sich nicht sicher. Bitte pruefe das Produkt vor dem Hinzufuegen.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Recognized Product Card */}
             <Card className="p-5 space-y-4">
               <div className="flex items-start gap-4">
@@ -442,6 +482,76 @@ export function InventoryScanPage() {
               variant="outline"
               className="w-full h-14"
               onClick={() => setShowDuplicateModal(false)}
+            >
+              Abbrechen
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Manual Product Selection */}
+      <BottomSheet
+        isOpen={showManualSelect}
+        onClose={() => setShowManualSelect(false)}
+      >
+        <div className="space-y-6 pb-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-2xl bg-primary/20">
+              <Search className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Produkt manuell zuordnen</h2>
+              <p className="text-muted-foreground mt-1">
+                Waehle eine Option um das Produkt zuzuordnen
+              </p>
+            </div>
+          </div>
+
+          {scanResult?.recognized_product && (
+            <div className="p-4 rounded-xl bg-accent/50">
+              <p className="text-sm text-muted-foreground">KI-Erkennung:</p>
+              <p className="font-medium">
+                {scanResult.recognized_product.brand && `${scanResult.recognized_product.brand} `}
+                {scanResult.recognized_product.product_name}
+                {scanResult.recognized_product.size_display && ` (${scanResult.recognized_product.size_display})`}
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Button
+              className="w-full h-14"
+              onClick={() => {
+                // Navigate to product creation with pre-filled AI data
+                const params = new URLSearchParams()
+                if (scanResult?.recognized_product) {
+                  params.set('name', scanResult.recognized_product.product_name || '')
+                  params.set('brand', scanResult.recognized_product.brand || '')
+                  params.set('size', scanResult.recognized_product.size_display || '')
+                  params.set('category', scanResult.recognized_product.category || '')
+                }
+                params.set('returnTo', `/inventory/sessions/${sessionId}/scan`)
+                navigate(`/products/new?${params.toString()}`)
+              }}
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              Neues Produkt anlegen
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full h-14"
+              onClick={() => {
+                // Navigate to product list for manual selection
+                navigate(`/products?select=true&returnTo=/inventory/sessions/${sessionId}/scan`)
+              }}
+            >
+              <Search className="mr-2 h-5 w-5" />
+              Bestehendes Produkt suchen
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-14"
+              onClick={() => setShowManualSelect(false)}
             >
               Abbrechen
             </Button>

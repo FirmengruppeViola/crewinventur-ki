@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  HelpCircle,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -259,6 +260,32 @@ export function ShelfScanPage() {
                 />
               ))}
             </div>
+
+            {/* Warning: Product not matched */}
+            {!currentProduct.matched_product && (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <HelpCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-400 text-sm">Nicht in Datenbank</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ueberspringe oder lege das Produkt spaeter an
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Warning: Low confidence */}
+            {currentProduct.recognized_product.confidence < 0.5 && currentProduct.matched_product && (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-400 text-sm">Unsicher erkannt</p>
+                  <p className="text-xs text-muted-foreground">
+                    Bitte pruefe das Produkt vor dem Hinzufuegen
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Product Card */}
             <Card className="p-6 space-y-5 animate-slide-in-right">
