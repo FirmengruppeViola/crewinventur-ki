@@ -1,23 +1,30 @@
 """
-Smart Product Matching Service using Gemini AI.
+Smart Product Matching Service using Gemini 3 Flash.
 
 This service solves the matching problem between:
 - Invoice items (often with cryptic abbreviations)
 - Products in the database (with clean names)
 
-The AI understands context and can match:
-- "Jägerm. 0.7" → "Jägermeister 0,7l"
-- "CocaCola 1L" → "Coca-Cola 1 Liter"
+Uses HIGH thinking for batch matching, MEDIUM for single invoice.
 """
 
-import json
 import logging
 from typing import Any
 
-from app.core.gemini import generate_json, ThinkingLevel
+from pydantic import BaseModel, Field
+
+from app.core.gemini import generate_structured_list, ThinkingLevel
 from app.core.supabase import get_supabase
 
 logger = logging.getLogger(__name__)
+
+
+class ProductMatch(BaseModel):
+    """Schema for a single product match result."""
+    item_id: str = Field(description="ID of the invoice item")
+    product_id: str | None = Field(description="ID of matched product, null if no match")
+    confidence: float = Field(ge=0.0, le=1.0, description="Match confidence 0.0-1.0")
+    reason: str = Field(description="Brief explanation for the match")
 
 
 def _build_matching_prompt(products: list[dict], items: list[dict]) -> str:
@@ -38,13 +45,13 @@ def _build_matching_prompt(products: list[dict], items: list[dict]) -> str:
         for item in items
     ])
 
-    return f"""Du bist ein Experte für Produktzuordnung in der Gastronomie.
+    return f"""Du bist ein Experte fuer Produktzuordnung in der Gastronomie.
 
 Ordne die Rechnungspositionen den Produkten zu. Beachte:
-- Abkürzungen entschlüsseln (Jägerm. = Jägermeister)
-- Größen normalisieren (0.7 = 0,7l = 700ml)
-- Marken erkennen
-- Wenn kein Match: null
+- Abkuerzungen entschluesseln (Jägerm. = Jägermeister)
+- Groessen normalisieren (0.7 = 0,7l = 700ml)
+- Marken erkennen trotz Schreibvarianten
+- Wenn kein sicherer Match: product_id = null
 
 PRODUKTE (Datenbank):
 {products_text}
@@ -52,20 +59,17 @@ PRODUKTE (Datenbank):
 RECHNUNGSPOSITIONEN (zu matchen):
 {items_text}
 
-Antworte NUR mit JSON Array:
-[
-  {{"item_id": "...", "product_id": "..." oder null, "confidence": 0.0-1.0, "reason": "kurze Begründung"}}
-]
-
 WICHTIG:
 - Nur matchen wenn SICHER (confidence > 0.7)
 - Bei Unsicherheit: product_id = null
-- Immer alle Items im Output!"""
+- Immer ALLE Items zurueckgeben!"""
 
 
 def match_products_for_user(user_id: str) -> dict[str, Any]:
     """
     Match all unmatched invoice items to products for a user.
+
+    Uses HIGH thinking level for thorough analysis.
 
     Returns:
         Dict with matched_count, failed_count, matches list
@@ -101,24 +105,15 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
 
     logger.info(f"Matching {len(items)} items against {len(products)} products for user {user_id}")
 
-    # Call Gemini for matching
+    # Call Gemini for matching with structured output
     prompt = _build_matching_prompt(products, items)
 
     try:
-        matches_raw = generate_json(
+        matches = generate_structured_list(
             prompt=prompt,
+            item_schema=ProductMatch,
             thinking_level=ThinkingLevel.HIGH,
         )
-
-        # Handle both list and dict responses
-        if isinstance(matches_raw, dict) and "matches" in matches_raw:
-            matches = matches_raw["matches"]
-        elif isinstance(matches_raw, list):
-            matches = matches_raw
-        else:
-            logger.error(f"Unexpected response format: {type(matches_raw)}")
-            matches = []
-
     except Exception as e:
         logger.error(f"Gemini matching failed: {e}")
         return {"matched_count": 0, "failed_count": len(items), "matches": [], "error": str(e)}
@@ -200,6 +195,8 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
 def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
     """
     Match unmatched items for a specific invoice.
+
+    Uses MEDIUM thinking level (faster than batch).
     """
     supabase = get_supabase()
 
@@ -241,22 +238,14 @@ def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
 
     logger.info(f"Matching {len(items)} items for invoice {invoice_id}")
 
-    # Use the same matching logic
     prompt = _build_matching_prompt(products, items)
 
     try:
-        matches_raw = generate_json(
+        matches = generate_structured_list(
             prompt=prompt,
+            item_schema=ProductMatch,
             thinking_level=ThinkingLevel.MEDIUM,
         )
-
-        if isinstance(matches_raw, dict) and "matches" in matches_raw:
-            matches = matches_raw["matches"]
-        elif isinstance(matches_raw, list):
-            matches = matches_raw
-        else:
-            matches = []
-
     except Exception as e:
         logger.error(f"Gemini matching failed: {e}")
         return {"matched_count": 0, "error": str(e)}

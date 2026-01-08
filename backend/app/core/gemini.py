@@ -1,26 +1,37 @@
-import json
-import logging
-import os
-import tempfile
-from enum import Enum
-from typing import Any
+"""
+Gemini 3 Flash API Integration.
 
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
+Uses the new google-genai SDK with:
+- Structured output (Pydantic JSON Schema)
+- Configurable thinking levels
+- Native multimodal support
+"""
+
+import logging
+from enum import Enum
+from typing import Any, Type
+
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3-flash-preview"
 
 
 class ThinkingLevel(str, Enum):
-    """Thinking levels - kept for API compatibility but not used in generation config."""
-    MINIMAL = "minimal"  # Fast, simple tasks (single product recognition)
-    LOW = "low"          # Multiple items (shelf scan)
-    MEDIUM = "medium"    # Analysis tasks (inventory comparison)
-    HIGH = "high"        # Complex extraction (invoices with calculations)
+    """
+    Thinking levels for Gemini 3 Flash.
+
+    Controls reasoning depth - higher = more accurate but slower/costlier.
+    """
+    MINIMAL = "minimal"  # Fastest, simple tasks (single product scan)
+    LOW = "low"          # Quick reasoning (basic recognition)
+    MEDIUM = "medium"    # Balanced (shelf scan, multiple items)
+    HIGH = "high"        # Deep reasoning (invoices, complex extraction)
 
 
 class GeminiError(Exception):
@@ -34,135 +45,225 @@ class GeminiAPIError(GeminiError):
 
 
 class GeminiParseError(GeminiError):
-    """Raised when response cannot be parsed as JSON."""
+    """Raised when response cannot be parsed."""
     pass
 
 
-def configure_gemini():
-    """Configure the Gemini API with credentials."""
-    genai.configure(api_key=settings.GOOGLE_GEMINI_API_KEY)
+def _get_client() -> genai.Client:
+    """Get configured Gemini client."""
+    return genai.Client(api_key=settings.GOOGLE_GEMINI_API_KEY)
 
 
-def _extract_json(text: str) -> Any:
-    """Extract JSON from response text, handling markdown code blocks."""
-    if not text or not text.strip():
-        raise GeminiParseError("Empty response from Gemini")
-
-    # Try direct parse first
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-
-    # Try to find JSON in response (handles markdown blocks)
-    start_obj = text.find("{")
-    start_arr = text.find("[")
-    start_candidates = [idx for idx in (start_obj, start_arr) if idx != -1]
-
-    if not start_candidates:
-        logger.error(f"No JSON found in response: {text[:200]}...")
-        raise GeminiParseError("No JSON structure found in response")
-
-    start = min(start_candidates)
-    if text[start] == "{":
-        end = text.rfind("}")
-    else:
-        end = text.rfind("]")
-
-    if end != -1 and end > start:
-        try:
-            return json.loads(text[start : end + 1])
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parse failed: {e}, text: {text[start:end+1][:200]}...")
-            raise GeminiParseError(f"Invalid JSON in response: {e}") from e
-
-    raise GeminiParseError("Could not extract valid JSON from response")
-
-
-def _build_image_part(image_bytes: bytes, mime_type: str):
-    """Build image part for Gemini API."""
-    try:
-        from google.generativeai import types
-        return types.Part.from_data(data=image_bytes, mime_type=mime_type)
-    except Exception as e:
-        logger.warning(f"Direct image part failed, uploading file: {e}")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=_mime_to_suffix(mime_type)) as tmp:
-            tmp.write(image_bytes)
-            tmp.flush()
-            file_path = tmp.name
-        try:
-            uploaded = genai.upload_file(file_path)
-            return uploaded
-        finally:
-            try:
-                os.unlink(file_path)
-            except OSError:
-                pass
-
-
-def _mime_to_suffix(mime_type: str) -> str:
-    """Convert MIME type to file suffix."""
-    if mime_type.endswith("png"):
-        return ".png"
-    if mime_type.endswith("pdf"):
-        return ".pdf"
-    return ".jpg"
-
-
-def generate_json(
+def generate_structured(
     prompt: str,
+    response_schema: Type[BaseModel],
     image_bytes: bytes | None = None,
     mime_type: str = "image/jpeg",
     thinking_level: ThinkingLevel = ThinkingLevel.MINIMAL,
-) -> Any:
+) -> dict[str, Any]:
     """
-    Generate JSON response from Gemini 3 Flash.
+    Generate structured JSON response from Gemini 3 Flash.
+
+    Uses Pydantic schema for guaranteed valid output structure.
 
     Args:
         prompt: The text prompt
+        response_schema: Pydantic model defining expected response structure
         image_bytes: Optional image data
         mime_type: MIME type of the image
-        thinking_level: Controls reasoning depth (affects cost/latency)
+        thinking_level: Controls reasoning depth
 
     Returns:
-        Parsed JSON response
+        Parsed JSON dict matching the schema
 
     Raises:
         GeminiAPIError: When API call fails
-        GeminiParseError: When response cannot be parsed
+        GeminiParseError: When response is invalid
     """
-    configure_gemini()
+    client = _get_client()
 
-    logger.info(f"Gemini request: model={MODEL_NAME}, thinking={thinking_level.value}, has_image={image_bytes is not None}")
+    logger.info(
+        f"Gemini request: model={MODEL_NAME}, "
+        f"thinking={thinking_level.value}, "
+        f"schema={response_schema.__name__}, "
+        f"has_image={image_bytes is not None}"
+    )
 
-    model = genai.GenerativeModel(model_name=MODEL_NAME)
+    # Build content parts
+    contents: list[Any] = []
 
-    parts: list[Any] = [prompt]
     if image_bytes:
-        parts.append(_build_image_part(image_bytes, mime_type))
+        # Add image first, then prompt
+        contents.append(
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+        )
 
-    generation_config: dict[str, Any] = {
-        "response_mime_type": "application/json",
-    }
+    contents.append(prompt)
+
+    # Configure generation with structured output
+    config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_level=thinking_level.value
+        ),
+        response_mime_type="application/json",
+        response_schema=response_schema,
+    )
 
     try:
-        response = model.generate_content(
-            parts,
-            generation_config=generation_config,
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents,
+            config=config,
         )
 
         if not response.text:
             raise GeminiAPIError("Empty response from Gemini API")
 
-        result = _extract_json(response.text)
-        logger.info("Gemini response parsed successfully")
+        # Parse JSON - should be valid due to structured output
+        import json
+        result = json.loads(response.text)
+
+        logger.info(f"Gemini response parsed successfully")
         return result
 
-    except google_exceptions.GoogleAPIError as e:
-        logger.error(f"Gemini API error: {e}")
-        raise GeminiAPIError(f"Gemini API call failed: {e}") from e
-    except GeminiParseError:
-        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse error despite structured output: {e}")
+        raise GeminiParseError(f"Invalid JSON in response: {e}") from e
     except Exception as e:
-        logger.error(f"Unexpected error in Gemini call: {type(e).__name__}: {e}")
-        raise GeminiAPIError(f"Unexpected error: {e}") from e
+        error_msg = str(e)
+        logger.error(f"Gemini API error: {type(e).__name__}: {error_msg}")
+        raise GeminiAPIError(f"Gemini API call failed: {error_msg}") from e
+
+
+def generate_structured_list(
+    prompt: str,
+    item_schema: Type[BaseModel],
+    image_bytes: bytes | None = None,
+    mime_type: str = "image/jpeg",
+    thinking_level: ThinkingLevel = ThinkingLevel.MEDIUM,
+) -> list[dict[str, Any]]:
+    """
+    Generate a list of structured items from Gemini 3 Flash.
+
+    For multi-item recognition (shelf scan, invoice items).
+
+    Args:
+        prompt: The text prompt
+        item_schema: Pydantic model for each item
+        image_bytes: Optional image data
+        mime_type: MIME type of the image
+        thinking_level: Controls reasoning depth
+
+    Returns:
+        List of dicts, each matching the item schema
+    """
+    client = _get_client()
+
+    logger.info(
+        f"Gemini list request: model={MODEL_NAME}, "
+        f"thinking={thinking_level.value}, "
+        f"item_schema={item_schema.__name__}"
+    )
+
+    contents: list[Any] = []
+
+    if image_bytes:
+        contents.append(
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+        )
+
+    contents.append(prompt)
+
+    # For lists, we create a wrapper schema
+    class ListWrapper(BaseModel):
+        items: list[item_schema]  # type: ignore
+
+    config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_level=thinking_level.value
+        ),
+        response_mime_type="application/json",
+        response_schema=ListWrapper,
+    )
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents,
+            config=config,
+        )
+
+        if not response.text:
+            logger.warning("Empty response from Gemini, returning empty list")
+            return []
+
+        import json
+        result = json.loads(response.text)
+
+        # Extract items from wrapper
+        items = result.get("items", [])
+        logger.info(f"Gemini returned {len(items)} items")
+        return items
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse error: {e}")
+        raise GeminiParseError(f"Invalid JSON in response: {e}") from e
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Gemini API error: {type(e).__name__}: {error_msg}")
+        raise GeminiAPIError(f"Gemini API call failed: {error_msg}") from e
+
+
+# Legacy function for backwards compatibility during migration
+def generate_json(
+    prompt: str,
+    image_bytes: bytes | None = None,
+    mime_type: str = "image/jpeg",
+    thinking_level: ThinkingLevel = ThinkingLevel.MINIMAL,
+    response_schema: Type[BaseModel] | None = None,
+) -> Any:
+    """
+    Legacy wrapper - prefer generate_structured() for new code.
+    """
+    if response_schema:
+        return generate_structured(
+            prompt=prompt,
+            response_schema=response_schema,
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            thinking_level=thinking_level,
+        )
+
+    # Fallback to unstructured (not recommended)
+    client = _get_client()
+
+    contents: list[Any] = []
+    if image_bytes:
+        contents.append(
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+        )
+    contents.append(prompt)
+
+    config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            thinking_level=thinking_level.value
+        ),
+        response_mime_type="application/json",
+    )
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=contents,
+            config=config,
+        )
+
+        if not response.text:
+            raise GeminiAPIError("Empty response")
+
+        import json
+        return json.loads(response.text)
+
+    except Exception as e:
+        logger.error(f"Gemini error: {e}")
+        raise GeminiAPIError(str(e)) from e

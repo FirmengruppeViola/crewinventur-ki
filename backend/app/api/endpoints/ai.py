@@ -2,7 +2,6 @@ import base64
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
-from pydantic import ValidationError
 
 from app.api.deps import get_current_user
 from app.core.gemini import GeminiError
@@ -66,13 +65,7 @@ async def recognize_product_endpoint(
         logger.error(f"AI recognition failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {e}",
-        ) from e
-    except ValidationError as e:
-        logger.error(f"AI response validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI returned invalid response format",
+            detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
     existing_match = None
@@ -176,13 +169,7 @@ async def recognize_multiple_endpoint(
         logger.error(f"AI multi-recognition failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {e}",
-        ) from e
-    except ValidationError as e:
-        logger.error(f"AI response validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI returned invalid response format",
+            detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
     return {"products": [product.model_dump() for product in products]}
@@ -221,13 +208,7 @@ async def extract_invoice_endpoint(
         logger.error(f"AI invoice extraction failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI service temporarily unavailable: {e}",
-        ) from e
-    except ValidationError as e:
-        logger.error(f"AI response validation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI returned invalid response format",
+            detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
     return extraction.model_dump()

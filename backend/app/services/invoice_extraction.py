@@ -1,7 +1,17 @@
+"""
+Invoice Extraction Service using Gemini 3 Flash.
+
+Uses HIGH thinking level for accurate extraction of:
+- Supplier info
+- Line items with prices and VAT
+- Totals and calculations
+- AI-normalized product names for matching
+"""
+
 import base64
 import logging
 
-from app.core.gemini import generate_json, ThinkingLevel
+from app.core.gemini import generate_structured, ThinkingLevel
 from app.schemas.gemini_responses import InvoiceExtractionResponse
 
 logger = logging.getLogger(__name__)
@@ -9,37 +19,41 @@ logger = logging.getLogger(__name__)
 
 def _build_prompt() -> str:
     """Build prompt for invoice extraction."""
-    return """Extrahiere Rechnungsdaten aus dem Dokument. Antworte NUR mit JSON im Schema:
-{supplier_name, invoice_number, invoice_date, items, totals, confidence}.
+    return """Extrahiere alle Rechnungsdaten aus dem Dokument.
+
+WICHTIG - Analysiere gruendlich:
+1. Lieferant/Absender oben auf der Rechnung
+2. Rechnungsnummer und -datum
+3. ALLE Positionen mit Preisen und MwSt
+4. Summen (Netto, MwSt 7%, MwSt 19%, Brutto)
 
 invoice_date im Format YYYY-MM-DD.
 
-items ist eine Liste von Positionen mit:
-{
-  description: Original-Text von der Rechnung (z.B. "Jägerm. 0.7 Kräuterl."),
-  quantity: Menge als Integer,
-  unit: Einheit (Stk, Fl, Kar, etc.),
-  unit_price_net: Netto-Einzelpreis,
-  unit_price_gross: Brutto-Einzelpreis,
-  vat_rate: MwSt-Satz (7 oder 19),
-  total_gross: Brutto-Gesamtpreis,
+Fuer jede Position:
+- description: Original-Text von der Rechnung (exakt wie gedruckt)
+- quantity: Menge als Integer
+- unit: Einheit (Stk, Fl, Kar, Kis, etc.)
+- unit_price_net: Netto-Einzelpreis
+- unit_price_gross: Brutto-Einzelpreis
+- vat_rate: MwSt-Satz (7 oder 19)
+- total_gross: Brutto-Gesamtpreis der Position
 
-  normalized_name: WICHTIG! Erkenne das tatsächliche Produkt und schreibe den vollständigen,
-                   sauberen Produktnamen (z.B. "Jägermeister 0,7l" statt "Jägerm. 0.7"),
-  normalized_brand: Marke wenn erkennbar (z.B. "Mast-Jägermeister", "Coca-Cola"),
-  normalized_size: Größe/Volumen einheitlich (z.B. "0,7l", "1L", "0,33l"),
-  normalized_category: Kategorie (Spirituosen, Bier, Wein, Softdrinks, Säfte, Wasser,
-                       Lebensmittel, Snacks, Tabak, Sonstiges)
-}
+WICHTIG - AI-Normalisierung fuer Produktzuordnung:
+- normalized_name: Vollstaendiger, sauberer Produktname
+  (z.B. "Jägerm. 0.7 Kräuterl." → "Jägermeister Kräuterlikör 0,7l")
+- normalized_brand: Marke ausgeschrieben (z.B. "Mast-Jägermeister")
+- normalized_size: Groesse einheitlich (z.B. "0,7l", "1L", "0,33l", "20x0,5l")
+- normalized_category: Eine von:
+  Spirituosen, Bier, Wein, Sekt, Softdrinks, Säfte, Wasser,
+  Lebensmittel, Snacks, Tabak, Reinigung, Sonstiges
 
-WICHTIG für normalized_name:
-- Entschlüssele Abkürzungen (Jägerm. → Jägermeister, CocaCola → Coca-Cola)
-- Füge Größe hinzu wenn nicht vorhanden
-- Schreibe Marken korrekt aus
-- Das ist für Produktzuordnung essentiell!
+Entschluessele Abkuerzungen intelligent:
+- "Jägerm." → "Jägermeister"
+- "CoCo" → "Coca-Cola"
+- "Kräuterl." → "Kräuterlikör"
+- "MW" → "Mehrweg"
 
-totals: {net, vat_7, vat_19, gross}
-confidence: 0.0 bis 1.0"""
+confidence: Deine Sicherheit bei der Extraktion (0.0-1.0)"""
 
 
 def extract_invoice(
@@ -48,6 +62,9 @@ def extract_invoice(
 ) -> InvoiceExtractionResponse:
     """
     Extract invoice data from a PDF or image.
+
+    Uses HIGH thinking level for maximum accuracy with
+    complex tabular data and calculations.
 
     Args:
         file_base64: Base64 encoded file (PDF or image)
@@ -58,15 +75,16 @@ def extract_invoice(
 
     Raises:
         GeminiError: When AI processing fails
-        ValidationError: When response doesn't match schema
     """
     logger.info(f"Extracting invoice data, mime_type={mime_type}")
 
     file_bytes = base64.b64decode(file_base64)
     prompt = _build_prompt()
 
-    data = generate_json(
+    # Use HIGH thinking for complex invoice analysis
+    data = generate_structured(
         prompt=prompt,
+        response_schema=InvoiceExtractionResponse,
         image_bytes=file_bytes,
         mime_type=mime_type,
         thinking_level=ThinkingLevel.HIGH,
