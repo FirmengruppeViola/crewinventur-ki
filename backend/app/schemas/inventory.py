@@ -79,8 +79,8 @@ class InventoryItemOut(BaseModel):
     full_quantity: float | None = None
     partial_quantity: float | None = None
     partial_fill_percent: int | None = None
-    quantity: float
-    unit_price: float
+    quantity: float | None = None
+    unit_price: float | None = None
     total_price: float | None = None
     previous_quantity: float | None = None
     quantity_difference: float | None = None
