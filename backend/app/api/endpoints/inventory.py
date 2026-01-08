@@ -359,7 +359,7 @@ def add_session_item(
     # Check for existing item in session (duplicate handling)
     existing = (
         supabase.table("inventory_items")
-        .select("id, full_quantity, partial_quantity, quantity")
+        .select("id, quantity")
         .eq("session_id", session_id)
         .eq("product_id", payload.product_id)
         .execute()
@@ -371,22 +371,13 @@ def add_session_item(
 
         if merge_mode == "add":
             # Add quantities together
-            existing_full = float(existing_item.get("full_quantity") or existing_item.get("quantity") or 0)
-            existing_partial = float(existing_item.get("partial_quantity") or 0)
-            new_full = existing_full + full_qty
-            new_partial = existing_partial + partial_qty
-            # Handle overflow: if partial >= 1, move to full
-            if new_partial >= 1:
-                new_full += int(new_partial)
-                new_partial = new_partial - int(new_partial)
+            existing_qty = float(existing_item.get("quantity") or 0)
+            new_qty = existing_qty + total_qty
 
             update_resp = (
                 supabase.table("inventory_items")
                 .update({
-                    "full_quantity": new_full,
-                    "partial_quantity": new_partial,
-                    "partial_fill_percent": partial_pct,
-                    "quantity": new_full + new_partial,
+                    "quantity": new_qty,
                     "unit_price": unit_price,
                 })
                 .eq("id", existing_item["id"])
@@ -400,14 +391,9 @@ def add_session_item(
             update_resp = (
                 supabase.table("inventory_items")
                 .update({
-                    "full_quantity": full_qty,
-                    "partial_quantity": partial_qty,
-                    "partial_fill_percent": partial_pct,
                     "quantity": total_qty,
                     "unit_price": unit_price,
                     "notes": payload.notes,
-                    "scan_method": payload.scan_method or "manual",
-                    "ai_confidence": payload.ai_confidence,
                 })
                 .eq("id", existing_item["id"])
                 .execute()
@@ -423,22 +409,18 @@ def add_session_item(
             detail="Product already in session. Use merge_mode='add' or 'replace'",
         )
 
-    # Create new item
+    # Create new item - use only columns that exist in DB
+    # Note: full_quantity, partial_quantity etc. require DB migration
+    insert_data = {
+        "session_id": session_id,
+        "product_id": payload.product_id,
+        "quantity": total_qty,
+        "unit_price": unit_price,
+        "notes": payload.notes,
+    }
     response = (
         supabase.table("inventory_items")
-        .insert({
-            "session_id": session_id,
-            "product_id": payload.product_id,
-            "full_quantity": full_qty,
-            "partial_quantity": partial_qty,
-            "partial_fill_percent": partial_pct,
-            "quantity": total_qty,
-            "unit_price": unit_price,
-            "notes": payload.notes,
-            "scan_method": payload.scan_method or "manual",
-            "ai_confidence": payload.ai_confidence,
-            "ai_suggested_quantity": payload.ai_suggested_quantity,
-        })
+        .insert(insert_data)
         .execute()
     )
     data = response.data[0] if response.data else None
