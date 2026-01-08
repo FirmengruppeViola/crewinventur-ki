@@ -7,12 +7,10 @@ import {
   AlertTriangle,
   ArrowLeft,
   Sparkles,
-  Package,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
   Check,
   X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -22,9 +20,11 @@ import { useCamera } from '../../features/camera/useCamera'
 import {
   useShelfScan,
   useAddScannedItem,
+  useInventoryScan,
   type ScanResult,
 } from '../../features/inventory/useInventoryScan'
 import { useCategories } from '../../features/products/useCategories'
+import { useUnitSizeOptions } from '../../features/products/useUnitSizes'
 import { useUiStore } from '../../stores/uiStore'
 
 type ScanState = 'idle' | 'capturing' | 'processing' | 'result' | 'error'
@@ -48,126 +48,137 @@ type ProductItemProps = {
   index: number
   quantity: number
   categoryId: string
+  unitSizeId: string
   onQuantityChange: (value: number) => void
   onCategoryChange: (value: string) => void
+  onUnitSizeChange: (value: string) => void
   onRemove: () => void
+  onRescan: () => void
   categories: { label: string; value: string }[]
+  unitSizeOptions: { label: string; value: string }[]
   isExpanded: boolean
   onToggle: () => void
+  isSaving: boolean
 }
 
 function ProductItem({
   product,
   quantity,
   categoryId,
+  unitSizeId,
   onQuantityChange,
   onCategoryChange,
+  onUnitSizeChange,
   onRemove,
+  onRescan,
   categories,
+  unitSizeOptions,
   isExpanded,
   onToggle,
+  isSaving,
 }: ProductItemProps) {
   const recognition = product.recognized_product
   const isUnclear = product.needs_category || recognition.confidence < 0.7
   const hasNoMatch = !product.matched_product
 
+  // Get current unit label
+  const currentUnit = unitSizeOptions.find(u => u.value === unitSizeId)?.label || recognition.size_display || ''
+
   return (
-    <div className={`border rounded-xl overflow-hidden ${
-      isUnclear ? 'border-amber-500/40 bg-amber-500/5' : 'border-border bg-card'
-    }`}>
-      {/* Header - Always visible */}
+    <div className="border-b border-border/50 last:border-0">
+      {/* Header - Always visible, compact row */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 p-4 text-left"
+        className="w-full flex items-center gap-3 py-3 px-2 text-left hover:bg-accent/30 transition-colors"
       >
-        <div className={`p-2 rounded-lg ${isUnclear ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
-          <Package className={`h-5 w-5 ${isUnclear ? 'text-amber-500' : 'text-primary'}`} />
+        <div className="w-6 h-6 flex items-center justify-center">
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
         </div>
+
+        {/* Product Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium truncate">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-foreground">
               {recognition.brand ? `${recognition.brand} ` : ''}
               {recognition.product_name}
             </span>
+            {currentUnit && (
+              <span className="text-sm text-muted-foreground">· {currentUnit}</span>
+            )}
             {isUnclear && (
-              <span className="px-1.5 py-0.5 text-xs rounded bg-amber-500/20 text-amber-400 shrink-0">
+              <span className="px-1.5 py-0.5 text-xs rounded bg-amber-500/20 text-amber-400">
                 Pruefe
               </span>
             )}
             {hasNoMatch && (
-              <span className="px-1.5 py-0.5 text-xs rounded bg-violet-500/20 text-violet-400 shrink-0">
+              <span className="px-1.5 py-0.5 text-xs rounded bg-violet-500/20 text-violet-400">
                 Neu
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {recognition.size_display && <span>{recognition.size_display}</span>}
-            {recognition.category && recognition.category !== 'Unbekannt' && (
-              <>
-                <span>·</span>
-                <span>{recognition.category}</span>
-              </>
-            )}
             {quantity > 0 && (
-              <>
-                <span>·</span>
-                <span className="font-medium text-foreground">{quantity}x</span>
-              </>
+              <span className="text-sm font-medium text-primary">{quantity}x</span>
             )}
           </div>
+          {recognition.category && recognition.category !== 'Unbekannt' && (
+            <div className="text-xs text-muted-foreground mt-0.5">{recognition.category}</div>
+          )}
         </div>
-        {isExpanded ? (
-          <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-        ) : (
-          <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-        )}
+
+        {/* Confidence indicator */}
+        <div className="text-xs text-muted-foreground px-2">
+          {Math.round((recognition.confidence || 0) * 100)}%
+        </div>
       </button>
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-border/50 pt-4">
-          {/* Confidence Bar */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Sicherheit:</span>
-            <div className="h-1.5 flex-1 rounded-full bg-accent overflow-hidden">
-              <div
-                className={`h-full transition-all ${
-                  recognition.confidence >= 0.7 ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-                style={{ width: `${(recognition.confidence || 0) * 100}%` }}
-              />
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {Math.round((recognition.confidence || 0) * 100)}%
-            </span>
-          </div>
-
-          {/* Quantity & Category Row */}
+        <div className="px-4 pb-4 space-y-3 bg-accent/10">
+          {/* Fields Grid */}
           <div className="grid grid-cols-2 gap-3">
+            {/* Anzahl */}
             <Input
               label="Anzahl"
               type="number"
               min={0}
               value={quantity.toString()}
               onChange={(e) => onQuantityChange(Number(e.target.value) || 0)}
+              autoFocus
             />
-            {(product.needs_category || recognition.category === 'Unbekannt') && (
-              <Select
-                label="Kategorie"
-                name="category"
-                value={categoryId}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                options={[
-                  { label: 'Bitte waehlen...', value: '' },
-                  ...categories,
-                ]}
-              />
-            )}
+
+            {/* Einheit */}
+            <Select
+              label="Einheit"
+              name="unitSize"
+              value={unitSizeId}
+              onChange={(e) => onUnitSizeChange(e.target.value)}
+              options={[
+                { label: currentUnit || 'Erkannt...', value: '' },
+                ...unitSizeOptions,
+              ]}
+            />
           </div>
+
+          {/* Kategorie (when needed) */}
+          {(product.needs_category || recognition.category === 'Unbekannt') && (
+            <Select
+              label="Kategorie *"
+              name="category"
+              value={categoryId}
+              onChange={(e) => onCategoryChange(e.target.value)}
+              options={[
+                { label: 'Bitte waehlen...', value: '' },
+                ...categories,
+              ]}
+            />
+          )}
 
           {/* Duplicate Warning */}
           {product.duplicate_in_session && (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 text-sm">
+            <div className="flex items-center gap-2 p-2 rounded bg-amber-500/10 text-sm">
               <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
               <span className="text-amber-200">
                 Bereits {product.duplicate_in_session.quantity}x in dieser Session
@@ -175,14 +186,32 @@ function ProductItem({
             </div>
           )}
 
-          {/* Remove Button */}
-          <button
-            onClick={onRemove}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <X className="h-4 w-4" />
-            Nicht hinzufuegen
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-1">
+            {/* Rescan for unclear products */}
+            {isUnclear && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRescan}
+                disabled={isSaving}
+                className="flex-1"
+              >
+                <Camera className="h-4 w-4 mr-1" />
+                Nochmal scannen
+              </Button>
+            )}
+
+            {/* Remove */}
+            <button
+              onClick={onRemove}
+              className="flex items-center justify-center gap-1 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              disabled={isSaving}
+            >
+              <X className="h-4 w-4" />
+              Entfernen
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -198,6 +227,7 @@ export function ShelfScanPage() {
 
   const shelfScanMutation = useShelfScan(sessionId || '')
   const addItemMutation = useAddScannedItem(sessionId || '')
+  const singleScanMutation = useInventoryScan(sessionId || '')
 
   const [scanState, setScanState] = useState<ScanState>('idle')
   const [products, setProducts] = useState<ScanResult[]>([])
@@ -206,9 +236,11 @@ export function ShelfScanPage() {
   // Data for each product
   const [quantities, setQuantities] = useState<Map<number, number>>(new Map())
   const [categories, setCategories] = useState<Map<number, string>>(new Map())
+  const [unitSizes, setUnitSizes] = useState<Map<number, string>>(new Map())
   const [removed, setRemoved] = useState<Set<number>>(new Set())
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [rescanningIndex, setRescanningIndex] = useState<number | null>(null)
 
   // Category options for dropdown
   const categoryOptions = useMemo(() => {
@@ -217,6 +249,9 @@ export function ShelfScanPage() {
       value: cat.id,
     }))
   }, [categoriesData])
+
+  // Unit size options - load all, filtered by category would be possible
+  const { options: unitSizeOptions } = useUnitSizeOptions()
 
   // Count unclear products
   const unclearCount = useMemo(() => {
@@ -259,18 +294,28 @@ export function ShelfScanPage() {
       const result = await shelfScanMutation.mutateAsync(base64)
       setProducts(result.products)
 
-      // Initialize quantities (all empty - user fills in)
+      // Initialize data
       const initialQtys = new Map<number, number>()
       const initialCats = new Map<number, string>()
+      const initialUnits = new Map<number, string>()
       result.products.forEach((p, i) => {
-        initialQtys.set(i, 0) // User must enter
-        // Pre-fill category if matched product has one
+        initialQtys.set(i, 0)
         if (p.matched_product?.category_id) {
           initialCats.set(i, p.matched_product.category_id)
+        }
+        // Pre-fill unit if we can match it
+        if (p.recognized_product.size_display) {
+          const matchingUnit = unitSizeOptions.find(u =>
+            u.label.toLowerCase().includes(p.recognized_product.size_display?.toLowerCase() || '')
+          )
+          if (matchingUnit) {
+            initialUnits.set(i, matchingUnit.value)
+          }
         }
       })
       setQuantities(initialQtys)
       setCategories(initialCats)
+      setUnitSizes(initialUnits)
       setRemoved(new Set())
       setExpandedIndex(null)
 
@@ -288,6 +333,36 @@ export function ShelfScanPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Scan fehlgeschlagen')
       setScanState('error')
+    }
+  }
+
+  // Rescan a single product
+  const handleRescan = async (index: number) => {
+    setRescanningIndex(index)
+    try {
+      const base64 = await takePhoto()
+      if (!base64) {
+        setRescanningIndex(null)
+        return
+      }
+
+      const result = await singleScanMutation.mutateAsync(base64)
+
+      // Replace the product at index with new scan result
+      setProducts((prev) => {
+        const newProducts = [...prev]
+        newProducts[index] = result
+        return newProducts
+      })
+
+      addToast('Produkt neu gescannt', 'success')
+
+      // Re-expand this item to show the new result
+      setExpandedIndex(index)
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Rescan fehlgeschlagen', 'error')
+    } finally {
+      setRescanningIndex(null)
     }
   }
 
@@ -376,10 +451,10 @@ export function ShelfScanPage() {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-32">
+      <div className="flex-1 overflow-y-auto pb-32">
         {/* Idle / Capture States */}
         {(scanState === 'idle' || scanState === 'capturing') && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 px-4">
             <div className="p-6 rounded-3xl bg-violet-500/10">
               <Camera className="h-16 w-16 text-violet-500" />
             </div>
@@ -403,7 +478,7 @@ export function ShelfScanPage() {
 
         {/* Processing - CrewMate thinking */}
         {scanState === 'processing' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 px-4">
             <div className="relative">
               <Sparkles className="h-16 w-16 text-violet-500 animate-pulse" />
               <Loader2 className="absolute -bottom-2 -right-2 h-8 w-8 text-violet-500 animate-spin" />
@@ -419,7 +494,7 @@ export function ShelfScanPage() {
 
         {/* Error */}
         {scanState === 'error' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 px-4">
             <div className="p-6 rounded-3xl bg-destructive/10">
               <AlertTriangle className="h-16 w-16 text-destructive" />
             </div>
@@ -432,7 +507,7 @@ export function ShelfScanPage() {
                 Abbrechen
               </Button>
               <Button onClick={handleCapture}>
-                <RefreshCw className="mr-2 h-4 w-4" />
+                <Camera className="mr-2 h-4 w-4" />
                 Nochmal versuchen
               </Button>
             </div>
@@ -441,7 +516,7 @@ export function ShelfScanPage() {
 
         {/* Result - Product List */}
         {scanState === 'result' && (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             {/* CrewMate Message */}
             <Card className="p-4 border-violet-500/30 bg-violet-500/5">
               <div className="flex items-start gap-3">
@@ -457,8 +532,8 @@ export function ShelfScanPage() {
               </div>
             </Card>
 
-            {/* Product List */}
-            <div className="space-y-2">
+            {/* Product List - Compact accordion style */}
+            <div className="border border-border rounded-xl overflow-hidden bg-card">
               {products.map((product, index) => {
                 if (removed.has(index)) return null
                 return (
@@ -468,18 +543,25 @@ export function ShelfScanPage() {
                     index={index}
                     quantity={quantities.get(index) ?? 0}
                     categoryId={categories.get(index) ?? ''}
+                    unitSizeId={unitSizes.get(index) ?? ''}
                     onQuantityChange={(value) =>
                       setQuantities((prev) => new Map(prev).set(index, value))
                     }
                     onCategoryChange={(value) =>
                       setCategories((prev) => new Map(prev).set(index, value))
                     }
+                    onUnitSizeChange={(value) =>
+                      setUnitSizes((prev) => new Map(prev).set(index, value))
+                    }
                     onRemove={() => setRemoved((prev) => new Set(prev).add(index))}
+                    onRescan={() => handleRescan(index)}
                     categories={categoryOptions}
+                    unitSizeOptions={unitSizeOptions}
                     isExpanded={expandedIndex === index}
                     onToggle={() =>
                       setExpandedIndex(expandedIndex === index ? null : index)
                     }
+                    isSaving={isSaving || rescanningIndex === index}
                   />
                 )
               })}
@@ -488,7 +570,7 @@ export function ShelfScanPage() {
             {/* Removed count */}
             {removed.size > 0 && (
               <p className="text-sm text-muted-foreground text-center">
-                {removed.size} Produkt{removed.size > 1 ? 'e' : ''} ausgeschlossen
+                {removed.size} Produkt{removed.size > 1 ? 'e' : ''} ausgeblendet
               </p>
             )}
           </div>
