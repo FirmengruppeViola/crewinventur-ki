@@ -244,11 +244,11 @@ export function ActiveSessionPage() {
                         scanned_at: item.scanned_at ?? null,
                         scan_method: item.scan_method ?? null,
                         ai_confidence: item.ai_confidence ?? null,
-                        notes: item.notes ?? null,
+                        notes: item.notes ?? undefined,
                       }}
                       product={{
                         name: product?.name || 'Unbekannt',
-                        brand: product?.brand,
+                        brand: product?.brand || undefined,
                       }}
                       isExpanded={expandedItemId === item.id}
                       onToggle={() =>
