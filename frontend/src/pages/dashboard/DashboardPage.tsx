@@ -6,9 +6,36 @@ import { useProducts } from '../../features/products/useProducts'
 import { useInventorySessions, type InventorySession } from '../../features/inventory/useInventory'
 
 export function DashboardPage() {
-  const { data: locations } = useLocations()
-  const { data: products } = useProducts()
-  const { data: sessions } = useInventorySessions()
+  const { data: locations, isLoading: locationsLoading } = useLocations()
+  const { data: products, isLoading: productsLoading } = useProducts()
+  const { data: sessions, isLoading: sessionsLoading } = useInventorySessions()
+
+  const isLoading = productsLoading || locationsLoading || sessionsLoading
+
+  if (isLoading) {
+    return (
+      <div className="bg-background min-h-screen">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+          <div className="flex items-center gap-4 px-4 py-4">
+            <div className="h-10 w-10 rounded-full bg-accent animate-pulse" />
+            <div className="flex-1">
+              <div className="h-5 w-32 bg-accent rounded animate-pulse" />
+              <div className="h-3 w-24 bg-accent rounded animate-pulse mt-1" />
+            </div>
+          </div>
+        </header>
+        <div className="p-4 space-y-4">
+          <div className="h-24 bg-accent rounded-2xl animate-pulse" />
+          <div className="grid grid-cols-3 gap-3">
+            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
+            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
+            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
+          </div>
+          <div className="h-32 bg-accent rounded-2xl animate-pulse" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

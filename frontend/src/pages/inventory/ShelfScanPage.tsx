@@ -59,6 +59,7 @@ type ProductItemProps = {
   isExpanded: boolean
   onToggle: () => void
   isSaving: boolean
+  hasFailed: boolean
 }
 
 function ProductItem({
@@ -76,6 +77,7 @@ function ProductItem({
   isExpanded,
   onToggle,
   isSaving,
+  hasFailed,
 }: ProductItemProps) {
   const recognition = product.recognized_product
   const isUnclear = product.needs_category || recognition.confidence < 0.7
@@ -85,7 +87,7 @@ function ProductItem({
   const currentUnit = unitSizeOptions.find(u => u.value === unitSizeId)?.label || recognition.size_display || ''
 
   return (
-    <div className="border-b border-border/50 last:border-0">
+    <div className={`border-b border-border/50 last:border-0 ${hasFailed ? 'bg-destructive/10' : ''}`}>
       {/* Header - Always visible, compact row */}
       <button
         onClick={onToggle}
@@ -117,6 +119,11 @@ function ProductItem({
             {hasNoMatch && (
               <span className="px-1.5 py-0.5 text-xs rounded bg-violet-500/20 text-violet-400">
                 Neu
+              </span>
+            )}
+            {hasFailed && (
+              <span className="px-1.5 py-0.5 text-xs rounded bg-destructive/20 text-destructive">
+                Fehler
               </span>
             )}
             {quantity > 0 && (
@@ -241,6 +248,7 @@ export function ShelfScanPage() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [rescanningIndex, setRescanningIndex] = useState<number | null>(null)
+  const [failedIndices, setFailedIndices] = useState<Set<number>>(new Set())
 
   // Category options for dropdown
   const categoryOptions = useMemo(() => {
@@ -368,17 +376,23 @@ export function ShelfScanPage() {
 
   const handleSaveAll = async () => {
     setIsSaving(true)
+    setFailedIndices(new Set())
+
     let savedCount = 0
-    const errors: string[] = []
+    const newFailed = new Set<number>()
 
     for (let i = 0; i < products.length; i++) {
       if (removed.has(i)) continue
 
       const product = products[i]
-      if (!product.matched_product) continue
-
       const qty = quantities.get(i) ?? 0
+
       if (qty <= 0) continue
+
+      if (!product.matched_product?.id) {
+        newFailed.add(i)
+        continue
+      }
 
       try {
         await addItemMutation.mutateAsync({
@@ -391,20 +405,22 @@ export function ShelfScanPage() {
         })
         savedCount++
       } catch (error) {
-        errors.push(product.recognized_product.product_name)
+        newFailed.add(i)
       }
     }
 
     setIsSaving(false)
+    setFailedIndices(newFailed)
 
     if (savedCount > 0) {
       addToast(`${savedCount} Produkte hinzugefuegt!`, 'success')
     }
-    if (errors.length > 0) {
-      addToast(`Fehler bei: ${errors.join(', ')}`, 'error')
-    }
 
-    navigate(`/inventory/sessions/${sessionId}`)
+    if (newFailed.size === 0) {
+      navigate(`/inventory/sessions/${sessionId}`)
+    } else {
+      addToast(`${newFailed.size} Produkte fehlgeschlagen - bitte pruefen`, 'error')
+    }
   }
 
   const handleBack = () => {
@@ -562,6 +578,7 @@ export function ShelfScanPage() {
                       setExpandedIndex(expandedIndex === index ? null : index)
                     }
                     isSaving={isSaving || rescanningIndex === index}
+                    hasFailed={failedIndices.has(index)}
                   />
                 )
               })}
@@ -580,15 +597,25 @@ export function ShelfScanPage() {
       {/* Sticky Save Button */}
       {scanState === 'result' && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t border-border safe-area-bottom">
-          <Button
-            className="w-full h-14"
-            onClick={handleSaveAll}
-            loading={isSaving}
-            disabled={!canSave}
-          >
-            <Check className="mr-2 h-5 w-5" />
-            {activeProducts.length} Produkte hinzufuegen
-          </Button>
+          {failedIndices.size > 0 ? (
+            <Button
+              className="w-full h-14"
+              variant="outline"
+              onClick={() => navigate(`/inventory/sessions/${sessionId}`)}
+            >
+              Trotzdem zur Inventurliste
+            </Button>
+          ) : (
+            <Button
+              className="w-full h-14"
+              onClick={handleSaveAll}
+              loading={isSaving}
+              disabled={!canSave}
+            >
+              <Check className="mr-2 h-5 w-5" />
+              {activeProducts.length} Produkte hinzufuegen
+            </Button>
+          )}
         </div>
       )}
     </div>

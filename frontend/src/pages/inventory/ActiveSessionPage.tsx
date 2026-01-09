@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Package,
   Plus,
-  Trash2,
   Check,
   Camera,
   Grid3X3,
@@ -16,6 +15,7 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { SessionSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
+import { InventoryItemAccordion } from '../../components/inventory/InventoryItemAccordion'
 import { useLocation as useLocationData } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
 import { useCategories } from '../../features/products/useCategories'
@@ -25,63 +25,17 @@ import {
   useInventorySession,
   useSessionItems,
 } from '../../features/inventory/useInventory'
+import { useAuth } from '../../features/auth/useAuth'
+import { useQueryClient } from '@tanstack/react-query'
 import { useUiStore } from '../../stores/uiStore'
-
-type ItemRowProps = {
-  productName: string
-  quantity: number | null
-  fullQuantity?: number | null
-  partialQuantity?: number | null
-  unitPrice: number | null
-  totalPrice?: number | null
-  onDelete: () => void
-}
-
-function ItemRow({
-  productName,
-  quantity,
-  fullQuantity,
-  partialQuantity,
-  unitPrice,
-  totalPrice,
-  onDelete,
-}: ItemRowProps) {
-  const displayQty = fullQuantity !== null && fullQuantity !== undefined
-    ? partialQuantity
-      ? `${fullQuantity} + ${(partialQuantity * 100).toFixed(0)}%`
-      : fullQuantity.toString()
-    : (quantity ?? 0).toString()
-
-  return (
-    <div className="flex items-center gap-4 py-4 border-b border-border/50 last:border-0">
-      <div className="p-2 rounded-xl bg-primary/10">
-        <Package className="h-5 w-5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{productName}</p>
-        <p className="text-sm text-muted-foreground">
-          {(unitPrice ?? 0).toFixed(2)} EUR × {displayQty}
-        </p>
-      </div>
-      <div className="text-right">
-        <p className="font-semibold">{(totalPrice ?? (quantity ?? 0) * (unitPrice ?? 0)).toFixed(2)} EUR</p>
-        <div className="flex items-center gap-1 mt-1">
-          <button
-            onClick={onDelete}
-            className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { apiRequest } from '../../lib/api'
 
 export function ActiveSessionPage() {
   const { id } = useParams()
   const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
+  const queryClient = useQueryClient()
+  const { session: authSession } = useAuth()
   const sessionId = id ?? ''
 
   const { data: session, isLoading } = useInventorySession(sessionId)
@@ -95,6 +49,9 @@ export function ActiveSessionPage() {
 
   // Sort/Group state
   const [sortBy, setSortBy] = useState<'category' | 'scanned'>('scanned')
+
+  // Expansion state for accordion items
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
 
   // Manual add form
   const [showManualAdd, setShowManualAdd] = useState(false)
@@ -270,18 +227,70 @@ export function ActiveSessionPage() {
                 {categoryItems.map((item) => {
                   const product = productMap.get(item.product_id)
                   return (
-                    <ItemRow
+                    <InventoryItemAccordion
                       key={item.id}
-                      productName={product?.name || 'Unbekannt'}
-                      quantity={item.quantity}
-                      fullQuantity={(item as any).full_quantity}
-                      partialQuantity={(item as any).partial_quantity}
-                      unitPrice={item.unit_price}
-                      totalPrice={item.total_price}
-                      onDelete={() => {
-                        // Direct delete with confirmation
-                        if (confirm('Produkt entfernen?')) {
-                          // We'll handle this via mutation
+                      item={{
+                        id: item.id,
+                        session_id: sessionId,
+                        product_id: item.product_id,
+                        full_quantity: item.full_quantity ?? null,
+                        partial_quantity: item.partial_quantity ?? null,
+                        partial_fill_percent: item.partial_fill_percent ?? null,
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        total_price: item.total_price,
+                        previous_quantity: item.previous_quantity ?? null,
+                        quantity_difference: item.quantity_difference ?? null,
+                        scanned_at: item.scanned_at ?? null,
+                        scan_method: item.scan_method ?? null,
+                        ai_confidence: item.ai_confidence ?? null,
+                        notes: item.notes ?? null,
+                      }}
+                      product={{
+                        name: product?.name || 'Unbekannt',
+                        brand: product?.brand,
+                      }}
+                      isExpanded={expandedItemId === item.id}
+                      onToggle={() =>
+                        setExpandedItemId(expandedItemId === item.id ? null : item.id)
+                      }
+                      onUpdate={async (updates) => {
+                        try {
+                          const token = authSession?.access_token
+                          await apiRequest(
+                            `/api/v1/inventory/items/${item.id}`,
+                            { method: 'PUT', body: JSON.stringify(updates) },
+                            token,
+                          )
+                          queryClient.invalidateQueries({
+                            queryKey: ['inventory', 'items', sessionId],
+                          })
+                          queryClient.invalidateQueries({
+                            queryKey: ['inventory', 'sessions', sessionId],
+                          })
+                          addToast('Gespeichert', 'success')
+                        } catch {
+                          addToast('Speichern fehlgeschlagen', 'error')
+                        }
+                      }}
+                      onDelete={async () => {
+                        if (!confirm('Produkt entfernen?')) return
+                        try {
+                          const token = authSession?.access_token
+                          await apiRequest(
+                            `/api/v1/inventory/items/${item.id}`,
+                            { method: 'DELETE' },
+                            token,
+                          )
+                          queryClient.invalidateQueries({
+                            queryKey: ['inventory', 'items', sessionId],
+                          })
+                          queryClient.invalidateQueries({
+                            queryKey: ['inventory', 'sessions', sessionId],
+                          })
+                          addToast('Entfernt', 'success')
+                        } catch {
+                          addToast('Loeschen fehlgeschlagen', 'error')
                         }
                       }}
                     />
