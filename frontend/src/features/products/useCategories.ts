@@ -33,6 +33,9 @@ export function useCategories() {
         token,
       ),
     enabled: Boolean(token),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<Category[]>(queryKey),
   })

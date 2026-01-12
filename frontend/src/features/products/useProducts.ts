@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiRequest } from '../../lib/api'
 import { useAuth } from '../auth/useAuth'
+import { useMemo } from 'react'
 
 export type Product = {
   id: string
@@ -35,9 +36,13 @@ export function useProducts(params?: { categoryId?: string; query?: string }) {
   const { session } = useAuth()
   const token = session?.access_token
 
-  const queryParams = new URLSearchParams()
-  if (params?.categoryId) queryParams.set('category_id', params.categoryId)
-  if (params?.query) queryParams.set('q', params.query)
+  const queryParams = useMemo(() => {
+    const p = new URLSearchParams()
+    if (params?.categoryId) p.set('category_id', params.categoryId)
+    if (params?.query) p.set('q', params.query)
+    return p
+  }, [params?.categoryId, params?.query])
+  
   const queryString = queryParams.toString()
   const url = queryString ? `/api/v1/products?${queryString}` : '/api/v1/products'
 
@@ -51,6 +56,9 @@ export function useProducts(params?: { categoryId?: string; query?: string }) {
         token,
       ),
     enabled: Boolean(token),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<Product[]>(queryKey),
   })
@@ -71,6 +79,9 @@ export function useProduct(productId?: string) {
         token,
       ),
     enabled: Boolean(token && productId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       productId
         ? queryClient.getQueryData<Product>(queryKey)
