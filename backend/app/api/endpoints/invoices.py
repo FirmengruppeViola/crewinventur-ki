@@ -6,7 +6,11 @@ from app.core.supabase import get_supabase
 from app.schemas.invoice import InvoiceItemOut, InvoiceOut
 from app.services.invoice_extraction import extract_invoice
 from app.services.storage_service import get_storage_service
-from app.services.product_matcher import match_products_for_user, match_products_for_invoice
+from app.services.product_matcher import (
+    match_products_for_user,
+    match_products_for_invoice,
+)
+from app.utils.query_helpers import escape_like_pattern
 
 router = APIRouter()
 
@@ -17,49 +21,44 @@ def _now_iso():
 
 def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
     items = []
+    product_updates = {}
+
     for item in extraction.items:
         raw_text = item.description
-        # Use AI-normalized name for matching, fallback to raw text
         normalized_name = item.normalized_name or raw_text
         unit_price = item.unit_price_gross or item.unit_price_net
         total_price = item.total_gross
 
-        # Try matching with normalized name first (better quality)
         matched = None
         match_confidence = None
 
         if normalized_name:
-            # Try exact-ish match on normalized name
+            first_word = normalized_name.split()[0] if normalized_name.split() else ""
             matched = (
                 supabase.table("products")
                 .select("id")
                 .eq("user_id", user_id)
-                .ilike("name", f"%{normalized_name.split()[0]}%")  # First word
+                .ilike("name", escape_like_pattern(first_word))
                 .limit(5)
                 .execute()
             )
-            # If we have normalized brand, filter further
             if matched.data and item.normalized_brand:
-                for product in matched.data:
-                    brand_match = (
-                        supabase.table("products")
-                        .select("id")
-                        .eq("id", product["id"])
-                        .ilike("brand", f"%{item.normalized_brand}%")
-                        .execute()
-                    )
-                    if brand_match.data:
-                        matched.data = [brand_match.data[0]]
-                        match_confidence = 0.9
-                        break
+                matched_brands = [
+                    p
+                    for p in matched.data
+                    if p.get("brand")
+                    and item.normalized_brand.lower() in p["brand"].lower()
+                ]
+                if matched_brands:
+                    matched.data = [matched_brands[0]]
+                    match_confidence = 0.9
 
-        # Fallback to simple matching if nothing found
         if not matched or not matched.data:
             matched = (
                 supabase.table("products")
                 .select("id")
                 .eq("user_id", user_id)
-                .ilike("name", f"%{raw_text}%")
+                .ilike("name", escape_like_pattern(raw_text))
                 .limit(1)
                 .execute()
             )
@@ -74,7 +73,7 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
                 "invoice_id": invoice_id,
                 "user_id": user_id,
                 "raw_text": raw_text,
-                "product_name": normalized_name,  # Use normalized as display name
+                "product_name": normalized_name,
                 "quantity": item.quantity,
                 "unit": item.unit,
                 "unit_price": unit_price,
@@ -82,7 +81,6 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
                 "matched_product_id": matched_product_id,
                 "match_confidence": match_confidence,
                 "is_manually_matched": False,
-                # New AI-normalized fields
                 "ai_normalized_name": item.normalized_name,
                 "ai_brand": item.normalized_brand,
                 "ai_size": item.normalized_size,
@@ -91,16 +89,17 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
         )
 
         if matched_product_id and unit_price:
-            supabase.table("products").update(
-                {
-                    "last_price": unit_price,
-                    "last_supplier": extraction.supplier_name,
-                    "last_price_date": extraction.invoice_date,
-                }
-            ).eq("id", matched_product_id).execute()
+            product_updates[matched_product_id] = {
+                "last_price": unit_price,
+                "last_supplier": extraction.supplier_name,
+                "last_price_date": extraction.invoice_date,
+            }
 
     if items:
         supabase.table("invoice_items").insert(items).execute()
+
+    for product_id, update_data in product_updates.items():
+        supabase.table("products").update(update_data).eq("id", product_id).execute()
 
 
 def _process_invoice(supabase, invoice, file_bytes: bytes, mime_type: str):
@@ -108,7 +107,9 @@ def _process_invoice(supabase, invoice, file_bytes: bytes, mime_type: str):
     file_base64 = base64.b64encode(file_bytes).decode("utf-8")
 
     try:
-        supabase.table("invoice_items").delete().eq("invoice_id", invoice["id"]).execute()
+        supabase.table("invoice_items").delete().eq(
+            "invoice_id", invoice["id"]
+        ).execute()
         extraction = extract_invoice(file_base64, mime_type=mime_type)
         _process_invoice_items(supabase, invoice["id"], user_id, extraction)
 
@@ -147,7 +148,9 @@ def list_invoices(current_user=Depends(get_current_user)):
     return response.data or []
 
 
-@router.post("/invoices/upload", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/invoices/upload", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED
+)
 async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user)):
     supabase = get_supabase()
     storage = get_storage_service()
@@ -159,20 +162,16 @@ async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user
         user_id=current_user.id,
         category="invoices",
         filename=file.filename,
-        include_date=True
+        include_date=True,
     )
 
     # Upload to R2/local storage
     try:
-        file_url = await storage.upload(
-            file_bytes,
-            storage_key,
-            file.content_type
-        )
+        file_url = await storage.upload(file_bytes, storage_key, file.content_type)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"File upload failed: {str(e)}"
+            detail=f"File upload failed: {str(e)}",
         )
 
     invoice_resp = (
@@ -204,12 +203,7 @@ async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user
         mime_type=file.content_type or "application/pdf",
     )
 
-    refreshed = (
-        supabase.table("invoices")
-        .select("*")
-        .eq("id", invoice["id"])
-        .execute()
-    )
+    refreshed = supabase.table("invoices").select("*").eq("id", invoice["id"]).execute()
     return refreshed.data[0] if refreshed.data else invoice
 
 
@@ -257,17 +251,14 @@ async def process_invoice(invoice_id: str, current_user=Depends(get_current_user
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to download file: {str(e)}"
+            detail=f"Failed to download file: {str(e)}",
         )
 
-    _process_invoice(supabase, invoice, file_bytes=file_bytes, mime_type="application/pdf")
-
-    refreshed = (
-        supabase.table("invoices")
-        .select("*")
-        .eq("id", invoice_id)
-        .execute()
+    _process_invoice(
+        supabase, invoice, file_bytes=file_bytes, mime_type="application/pdf"
     )
+
+    refreshed = supabase.table("invoices").select("*").eq("id", invoice_id).execute()
     return refreshed.data[0] if refreshed.data else invoice
 
 
@@ -304,6 +295,8 @@ def match_invoice_item(
     current_user=Depends(get_current_user),
 ):
     supabase = get_supabase()
+
+    # Step 1: Verify invoice item belongs to user
     item_resp = (
         supabase.table("invoice_items")
         .select("*")
@@ -319,20 +312,7 @@ def match_invoice_item(
             detail="Invoice item not found",
         )
 
-    updated = (
-        supabase.table("invoice_items")
-        .update(
-            {
-                "matched_product_id": product_id,
-                "match_confidence": 1.0,
-                "is_manually_matched": True,
-            }
-        )
-        .eq("id", item_id)
-        .execute()
-    )
-
-    # Verify product belongs to current user (prevent IDOR)
+    # Step 2: Verify product belongs to user (BEFORE updating)
     product_check = (
         supabase.table("products")
         .select("id")
@@ -346,22 +326,40 @@ def match_invoice_item(
             detail="Product not found",
         )
 
+    # Step 3: Update invoice item (WITH ownership check)
+    updated = (
+        supabase.table("invoice_items")
+        .update(
+            {
+                "matched_product_id": product_id,
+                "match_confidence": 1.0,
+                "is_manually_matched": True,
+            }
+        )
+        .eq("id", item_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+
+    # Step 4: Update product price
     invoice_resp = (
         supabase.table("invoices")
         .select("supplier_name, invoice_date")
         .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
         .execute()
     )
     invoice_data = invoice_resp.data[0] if invoice_resp.data else {}
 
-    supabase.table("products").update(
-        {
-            "last_price": item["unit_price"],
-            "last_supplier": invoice_data.get("supplier_name"),
-            "last_price_date": invoice_data.get("invoice_date")
-            or datetime.now(timezone.utc).date().isoformat(),
-        }
-    ).eq("id", product_id).eq("user_id", current_user.id).execute()
+    if invoice_data:
+        supabase.table("products").update(
+            {
+                "last_price": item["unit_price"],
+                "last_supplier": invoice_data.get("supplier_name"),
+                "last_price_date": invoice_data.get("invoice_date")
+                or datetime.now(timezone.utc).date().isoformat(),
+            }
+        ).eq("id", product_id).eq("user_id", current_user.id).execute()
 
     return updated.data[0] if updated.data else item
 
@@ -427,21 +425,19 @@ def auto_create_products_from_invoice(
         }
 
         try:
-            product_resp = (
-                supabase.table("products")
-                .insert(product_data)
-                .execute()
-            )
+            product_resp = supabase.table("products").insert(product_data).execute()
             if product_resp.data:
                 new_product = product_resp.data[0]
                 created_products.append(new_product)
 
                 # Update invoice item with match
-                supabase.table("invoice_items").update({
-                    "matched_product_id": new_product["id"],
-                    "match_confidence": 1.0,
-                    "is_manually_matched": False,  # Auto-created
-                }).eq("id", item["id"]).execute()
+                supabase.table("invoice_items").update(
+                    {
+                        "matched_product_id": new_product["id"],
+                        "match_confidence": 1.0,
+                        "is_manually_matched": False,  # Auto-created
+                    }
+                ).eq("id", item["id"]).execute()
 
         except Exception as e:
             # Skip duplicates (UNIQUE constraint on name/brand/variant/size)
@@ -455,11 +451,13 @@ def auto_create_products_from_invoice(
                 .execute()
             )
             if existing.data:
-                supabase.table("invoice_items").update({
-                    "matched_product_id": existing.data[0]["id"],
-                    "match_confidence": 0.9,
-                    "is_manually_matched": False,
-                }).eq("id", item["id"]).execute()
+                supabase.table("invoice_items").update(
+                    {
+                        "matched_product_id": existing.data[0]["id"],
+                        "match_confidence": 0.9,
+                        "is_manually_matched": False,
+                    }
+                ).eq("id", item["id"]).execute()
 
     return {
         "message": f"{len(created_products)} products created",

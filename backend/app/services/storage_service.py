@@ -45,11 +45,13 @@ class StorageService:
 
     def _init_r2_client(self):
         """Initialize the R2 (S3-compatible) client."""
-        if not all([
-            settings.R2_ACCOUNT_ID,
-            settings.R2_ACCESS_KEY_ID,
-            settings.R2_SECRET_ACCESS_KEY
-        ]):
+        if not all(
+            [
+                settings.R2_ACCOUNT_ID,
+                settings.R2_ACCESS_KEY_ID,
+                settings.R2_SECRET_ACCESS_KEY,
+            ]
+        ):
             raise ValueError(
                 "R2 credentials not configured. Set R2_ACCOUNT_ID, "
                 "R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY"
@@ -63,19 +65,14 @@ class StorageService:
             aws_access_key_id=settings.R2_ACCESS_KEY_ID,
             aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
             config=BotoConfig(
-                signature_version="s3v4",
-                s3={"addressing_style": "path"}
+                signature_version="s3v4", s3={"addressing_style": "path"}
             ),
-            region_name="auto"
+            region_name="auto",
         )
         logger.info(f"Initialized R2 client for bucket: {settings.R2_BUCKET_NAME}")
 
     def generate_key(
-        self,
-        user_id: str,
-        category: str,
-        filename: str,
-        include_date: bool = True
+        self, user_id: str, category: str, filename: str, include_date: bool = True
     ) -> str:
         """
         Generate a storage key with user isolation.
@@ -99,10 +96,7 @@ class StorageService:
             return f"user_{user_id}/{category}/{unique_name}"
 
     async def upload(
-        self,
-        file: bytes | BinaryIO,
-        key: str,
-        content_type: str | None = None
+        self, file: bytes | BinaryIO, key: str, content_type: str | None = None
     ) -> str:
         """
         Upload file to storage.
@@ -138,7 +132,7 @@ class StorageService:
                 Bucket=settings.R2_BUCKET_NAME,
                 Key=key,
                 Body=content,
-                ContentType=content_type
+                ContentType=content_type,
             )
             logger.info(f"Uploaded to R2: {key}")
             return self.get_url(key)
@@ -166,10 +160,7 @@ class StorageService:
             return f"/static/uploads/{key}"
 
     def get_presigned_url(
-        self,
-        key: str,
-        expires_in: int = 3600,
-        for_upload: bool = False
+        self, key: str, expires_in: int = 3600, for_upload: bool = False
     ) -> str:
         """
         Generate a pre-signed URL for secure access.
@@ -189,11 +180,8 @@ class StorageService:
 
         url = self._s3_client.generate_presigned_url(
             method,
-            Params={
-                "Bucket": settings.R2_BUCKET_NAME,
-                "Key": key
-            },
-            ExpiresIn=expires_in
+            Params={"Bucket": settings.R2_BUCKET_NAME, "Key": key},
+            ExpiresIn=expires_in,
         )
         return url
 
@@ -206,31 +194,36 @@ class StorageService:
 
         Returns:
             File content as bytes
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ClientError: If R2 download fails
         """
         if self.provider == "r2":
             try:
                 response = self._s3_client.get_object(
-                    Bucket=settings.R2_BUCKET_NAME,
-                    Key=key
+                    Bucket=settings.R2_BUCKET_NAME, Key=key
                 )
                 return response["Body"].read()
             except ClientError as e:
                 logger.error(f"R2 download failed for {key}: {e}")
-                raise
+                raise FileNotFoundError(f"File not found in R2: {key}") from e
         else:
             file_path = self._local_base / key
             if not file_path.exists():
+                logger.error(f"File not found locally: {file_path}")
                 raise FileNotFoundError(f"File not found: {key}")
-            return file_path.read_bytes()
+            try:
+                return file_path.read_bytes()
+            except OSError as e:
+                logger.error(f"Failed to read file {file_path}: {e}")
+                raise FileNotFoundError(f"Failed to read file: {key}") from e
 
     async def delete(self, key: str) -> bool:
         """Delete a file from storage."""
         try:
             if self.provider == "r2":
-                self._s3_client.delete_object(
-                    Bucket=settings.R2_BUCKET_NAME,
-                    Key=key
-                )
+                self._s3_client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
             else:
                 file_path = self._local_base / key
                 if file_path.exists():
@@ -245,10 +238,7 @@ class StorageService:
         """Check if a file exists in storage."""
         try:
             if self.provider == "r2":
-                self._s3_client.head_object(
-                    Bucket=settings.R2_BUCKET_NAME,
-                    Key=key
-                )
+                self._s3_client.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
                 return True
             else:
                 return (self._local_base / key).exists()

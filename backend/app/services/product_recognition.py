@@ -205,7 +205,9 @@ def recognize_multiple_products(
     Raises:
         GeminiError: When AI processing fails
     """
-    logger.info(f"Recognizing multiple products (shelf scan), categories={len(categories)}")
+    logger.info(
+        f"Recognizing multiple products (shelf scan), categories={len(categories)}"
+    )
 
     image_bytes = base64.b64decode(image_base64)
     prompt = _build_shelf_prompt(categories)
@@ -228,5 +230,9 @@ def recognize_multiple_products(
             result.confidence = min(result.confidence, 0.2)
         results.append(result)
 
-    logger.info(f"Recognized {len(results)} products from shelf scan")
-    return results
+    # Filter out low-confidence results (< 0.6)
+    filtered_results = [r for r in results if r.confidence >= 0.6]
+    logger.info(
+        f"Recognized {len(results)} products, filtered to {len(filtered_results)} with confidence >= 0.6"
+    )
+    return filtered_results

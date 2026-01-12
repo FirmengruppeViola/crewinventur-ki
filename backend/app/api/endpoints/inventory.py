@@ -29,27 +29,39 @@ def _recalculate_totals(supabase, session_id: str):
     ).eq("id", session_id).execute()
 
 
-def _verify_session_access(supabase, session_id: str, current_user: UserContext) -> dict:
+def _verify_session_access(
+    supabase, session_id: str, current_user: UserContext
+) -> dict:
     """
     Verify user has access to session.
     Returns session data if authorized, raises HTTPException otherwise.
     """
-    response = supabase.table("inventory_sessions").select("*").eq("id", session_id).execute()
+    response = (
+        supabase.table("inventory_sessions").select("*").eq("id", session_id).execute()
+    )
     session = response.data[0] if response.data else None
 
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
 
     if current_user.is_owner:
         if session["user_id"] != current_user.id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+            )
     else:
         # Manager: check if session's location is in allowed locations
         if session["location_id"] not in current_user.allowed_location_ids:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+            )
         # Also verify session belongs to their owner
         if session["user_id"] != current_user.effective_owner_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+            )
 
     return session
 
@@ -205,7 +217,9 @@ def update_session(
     return data
 
 
-@router.post("/inventory/sessions/{session_id}/complete", response_model=InventorySessionOut)
+@router.post(
+    "/inventory/sessions/{session_id}/complete", response_model=InventorySessionOut
+)
 def complete_session(
     session_id: str,
     current_user: UserContext = Depends(get_current_user_context),
@@ -216,11 +230,31 @@ def complete_session(
     # Verify access and get session
     session = _verify_session_access(supabase, session_id, current_user)
 
+    # Try to use the atomic RPC function if available
+    try:
+        result = supabase.rpc(
+            "complete_inventory_session_atomic",
+            {
+                "p_session_id": session_id,
+                "p_user_id": current_user.effective_owner_id,
+                "p_location_id": session["location_id"],
+                "p_completed_at": datetime.now(timezone.utc).isoformat(),
+                "p_notes": session.get("notes"),
+            },
+        ).execute()
+
+        if result.data and result.data.get("success"):
+            return result.data
+    except Exception as e:
+        # RPC function may not be deployed yet, fall back to original logic
+        logger.warning(f"RPC function not available, using fallback logic: {e}")
+
+    # Fallback to original logic with improved safety
     previous_id = session.get("previous_session_id")
     if not previous_id:
         previous = (
             supabase.table("inventory_sessions")
-            .select("id")
+            .select("id, completed_at")
             .eq("user_id", current_user.effective_owner_id)
             .eq("location_id", session["location_id"])
             .eq("status", "completed")
@@ -247,11 +281,22 @@ def complete_session(
         ).data or []
         previous_items = {item["product_id"]: item["quantity"] for item in prev_data}
 
+    differences = []
     for item in current_items:
         prev_qty = previous_items.get(item["product_id"])
         difference = None
         if prev_qty is not None:
             difference = float(item["quantity"]) - float(prev_qty)
+            if difference != 0:
+                differences.append(
+                    {
+                        "product_id": item["product_id"],
+                        "product_name": item.get("product_name", "Unknown"),
+                        "quantity_diff": difference,
+                        "previous_quantity": prev_qty,
+                        "current_quantity": item["quantity"],
+                    }
+                )
         supabase.table("inventory_items").update(
             {
                 "previous_quantity": prev_qty,
@@ -267,6 +312,7 @@ def complete_session(
                 "status": "completed",
                 "completed_at": completed_at,
                 "previous_session_id": previous_id,
+                "differences": differences,
             }
         )
         .eq("id", session_id)
@@ -284,7 +330,9 @@ def complete_session(
     return data
 
 
-@router.get("/inventory/sessions/{session_id}/items", response_model=list[InventoryItemOut])
+@router.get(
+    "/inventory/sessions/{session_id}/items", response_model=list[InventoryItemOut]
+)
 def list_session_items(
     session_id: str,
     current_user: UserContext = Depends(get_current_user_context),
@@ -371,7 +419,9 @@ def add_session_item(
 
         if merge_mode == "add":
             # Add quantities together
-            existing_full = float(existing_item.get("full_quantity") or existing_item.get("quantity") or 0)
+            existing_full = float(
+                existing_item.get("full_quantity") or existing_item.get("quantity") or 0
+            )
             existing_partial = float(existing_item.get("partial_quantity") or 0)
             new_full = existing_full + full_qty
             new_partial = existing_partial + partial_qty
@@ -382,13 +432,15 @@ def add_session_item(
 
             update_resp = (
                 supabase.table("inventory_items")
-                .update({
-                    "full_quantity": new_full,
-                    "partial_quantity": new_partial,
-                    "partial_fill_percent": partial_pct,
-                    "quantity": new_full + new_partial,
-                    "unit_price": unit_price,
-                })
+                .update(
+                    {
+                        "full_quantity": new_full,
+                        "partial_quantity": new_partial,
+                        "partial_fill_percent": partial_pct,
+                        "quantity": new_full + new_partial,
+                        "unit_price": unit_price,
+                    }
+                )
                 .eq("id", existing_item["id"])
                 .execute()
             )
@@ -399,46 +451,49 @@ def add_session_item(
             # Replace existing with new values
             update_resp = (
                 supabase.table("inventory_items")
-                .update({
-                    "full_quantity": full_qty,
-                    "partial_quantity": partial_qty,
-                    "partial_fill_percent": partial_pct,
-                    "quantity": total_qty,
-                    "unit_price": unit_price,
-                    "notes": payload.notes,
-                    "scan_method": payload.scan_method or "manual",
-                    "ai_confidence": payload.ai_confidence,
-                })
+                .update(
+                    {
+                        "full_quantity": full_qty,
+                        "partial_quantity": partial_qty,
+                        "partial_fill_percent": partial_pct,
+                        "quantity": total_qty,
+                        "unit_price": unit_price,
+                        "notes": payload.notes,
+                        "scan_method": payload.scan_method or "manual",
+                        "ai_confidence": payload.ai_confidence,
+                    }
+                )
                 .eq("id", existing_item["id"])
                 .execute()
             )
             _recalculate_totals(supabase, session_id)
             return update_resp.data[0]
 
-        # merge_mode == "new_entry": Fall through to create new
-        # Note: This will fail due to UNIQUE constraint unless we remove it
-        # For now, we return an error for this case
+        # merge_mode == "new_entry" is not supported due to UNIQUE constraint
+        # Fall through to create new entry with error
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Product already in session. Use merge_mode='add' or 'replace'",
+            detail="merge_mode='new_entry' is not supported. Use 'add' or 'replace' instead.",
         )
 
     # Create new item
     response = (
         supabase.table("inventory_items")
-        .insert({
-            "session_id": session_id,
-            "product_id": payload.product_id,
-            "full_quantity": full_qty,
-            "partial_quantity": partial_qty,
-            "partial_fill_percent": partial_pct,
-            "quantity": total_qty,
-            "unit_price": unit_price,
-            "notes": payload.notes,
-            "scan_method": payload.scan_method or "manual",
-            "ai_confidence": payload.ai_confidence,
-            "ai_suggested_quantity": payload.ai_suggested_quantity,
-        })
+        .insert(
+            {
+                "session_id": session_id,
+                "product_id": payload.product_id,
+                "full_quantity": full_qty,
+                "partial_quantity": partial_qty,
+                "partial_fill_percent": partial_pct,
+                "quantity": total_qty,
+                "unit_price": unit_price,
+                "notes": payload.notes,
+                "scan_method": payload.scan_method or "manual",
+                "ai_confidence": payload.ai_confidence,
+                "ai_suggested_quantity": payload.ai_suggested_quantity,
+            }
+        )
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -527,12 +582,7 @@ def delete_item(
     # Verify session access
     _verify_session_access(supabase, session_id, current_user)
 
-    response = (
-        supabase.table("inventory_items")
-        .delete()
-        .eq("id", item_id)
-        .execute()
-    )
+    response = supabase.table("inventory_items").delete().eq("id", item_id).execute()
     data = response.data[0] if response.data else None
     if data is None:
         raise HTTPException(

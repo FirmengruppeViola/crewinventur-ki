@@ -14,7 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, stat
 from app.api.deps import get_current_user
 from app.core.gemini import GeminiError
 from app.core.supabase import get_supabase
-from app.services.product_recognition import recognize_product, recognize_multiple_products
+from app.services.product_recognition import (
+    recognize_product,
+    recognize_multiple_products,
+)
 from app.schemas.inventory import ScanResult, ShelfScanResult
 
 router = APIRouter()
@@ -30,20 +33,20 @@ def _strip_data_prefix(value: str) -> str:
 
 def _find_existing_product(supabase, user_id: str, recognition) -> dict | None:
     """Find existing product by barcode or name match."""
-    # First try barcode match (most accurate)
+    # First try barcode match (most accurate) - normalize case
     if recognition.barcode:
         existing = (
             supabase.table("products")
             .select("*")
             .eq("user_id", user_id)
-            .eq("barcode", recognition.barcode)
+            .eq("barcode", recognition.barcode.upper())
             .limit(1)
             .execute()
         )
         if existing.data:
             return existing.data[0]
 
-    # Then try name + brand match
+    # Then try name + brand match (case-insensitive)
     query = (
         supabase.table("products")
         .select("*")
@@ -60,7 +63,9 @@ def _find_existing_product(supabase, user_id: str, recognition) -> dict | None:
     return None
 
 
-def _check_duplicate_in_session(supabase, session_id: str, product_id: str) -> dict | None:
+def _check_duplicate_in_session(
+    supabase, session_id: str, product_id: str
+) -> dict | None:
     """Check if product already exists in this session."""
     existing = (
         supabase.table("inventory_items")
@@ -76,17 +81,19 @@ def _create_product_from_recognition(supabase, user_id: str, recognition) -> dic
     """Auto-create a new product from AI recognition."""
     insert_resp = (
         supabase.table("products")
-        .insert({
-            "user_id": user_id,
-            "name": recognition.product_name,
-            "brand": recognition.brand,
-            "variant": recognition.variant,
-            "size": recognition.size_display,
-            "unit": "Stück",
-            "barcode": recognition.barcode,
-            "ai_description": f"{recognition.brand or ''} {recognition.product_name}".strip(),
-            "ai_confidence": recognition.confidence,
-        })
+        .insert(
+            {
+                "user_id": user_id,
+                "name": recognition.product_name,
+                "brand": recognition.brand,
+                "variant": recognition.variant,
+                "size": recognition.size_display,
+                "unit": "Stück",
+                "barcode": recognition.barcode,
+                "ai_description": f"{recognition.brand or ''} {recognition.product_name}".strip(),
+                "ai_confidence": recognition.confidence,
+            }
+        )
         .execute()
     )
     return insert_resp.data[0] if insert_resp.data else None
@@ -159,10 +166,7 @@ async def scan_for_inventory(
 
     # Get categories for recognition
     categories_resp = (
-        supabase.table("categories")
-        .select("name")
-        .eq("is_system", True)
-        .execute()
+        supabase.table("categories").select("name").eq("is_system", True).execute()
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
@@ -182,7 +186,9 @@ async def scan_for_inventory(
 
     # Auto-create if requested and product is new
     if is_new and auto_create:
-        existing_product = _create_product_from_recognition(supabase, current_user.id, recognition)
+        existing_product = _create_product_from_recognition(
+            supabase, current_user.id, recognition
+        )
         if existing_product:
             is_new = False  # Now it exists
             logger.info(f"Auto-created product: {existing_product['id']}")
@@ -195,10 +201,7 @@ async def scan_for_inventory(
         )
 
     # Check if category needs user confirmation
-    needs_category = (
-        recognition.category == "Unbekannt" or
-        recognition.confidence < 0.8
-    )
+    needs_category = recognition.category == "Unbekannt" or recognition.confidence < 0.8
 
     return ScanResult(
         recognized_product=recognition.model_dump(),
@@ -210,7 +213,9 @@ async def scan_for_inventory(
     )
 
 
-@router.post("/inventory/sessions/{session_id}/scan-shelf", response_model=ShelfScanResult)
+@router.post(
+    "/inventory/sessions/{session_id}/scan-shelf", response_model=ShelfScanResult
+)
 async def scan_shelf_for_inventory(
     session_id: str,
     request: Request,
@@ -278,16 +283,15 @@ async def scan_shelf_for_inventory(
 
     # Get categories
     categories_resp = (
-        supabase.table("categories")
-        .select("name")
-        .eq("is_system", True)
-        .execute()
+        supabase.table("categories").select("name").eq("is_system", True).execute()
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
     # Call Gemini for multi-product recognition
     try:
-        products = recognize_multiple_products(image_base64, categories, mime_type=mime_type)
+        products = recognize_multiple_products(
+            image_base64, categories, mime_type=mime_type
+        )
     except GeminiError as e:
         logger.error(f"AI shelf scan failed: {e}")
         raise HTTPException(
@@ -298,11 +302,15 @@ async def scan_shelf_for_inventory(
     # Process each recognized product
     results: list[ScanResult] = []
     for recognition in products:
-        existing_product = _find_existing_product(supabase, current_user.id, recognition)
+        existing_product = _find_existing_product(
+            supabase, current_user.id, recognition
+        )
         is_new = existing_product is None
 
         if is_new and auto_create:
-            existing_product = _create_product_from_recognition(supabase, current_user.id, recognition)
+            existing_product = _create_product_from_recognition(
+                supabase, current_user.id, recognition
+            )
             if existing_product:
                 is_new = False
 
@@ -314,18 +322,19 @@ async def scan_shelf_for_inventory(
 
         # Check if category needs user confirmation
         needs_category = (
-            recognition.category == "Unbekannt" or
-            recognition.confidence < 0.8
+            recognition.category == "Unbekannt" or recognition.confidence < 0.8
         )
 
-        results.append(ScanResult(
-            recognized_product=recognition.model_dump(),
-            matched_product=existing_product,
-            is_new=is_new,
-            duplicate_in_session=duplicate_in_session,
-            suggested_quantity=None,  # User enters manually
-            needs_category=needs_category,
-        ))
+        results.append(
+            ScanResult(
+                recognized_product=recognition.model_dump(),
+                matched_product=existing_product,
+                is_new=is_new,
+                duplicate_in_session=duplicate_in_session,
+                suggested_quantity=None,  # User enters manually
+                needs_category=needs_category,
+            )
+        )
 
     return ShelfScanResult(
         products=results,

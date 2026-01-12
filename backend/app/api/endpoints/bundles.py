@@ -16,7 +16,9 @@ def _get_bundle_or_404(supabase, bundle_id: str, user_id: str) -> dict:
         .execute()
     )
     if not resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found"
+        )
     return resp.data[0]
 
 
@@ -33,7 +35,9 @@ def list_bundles(current_user=Depends(get_current_user)):
     return resp.data or []
 
 
-@router.post("/inventory/bundles", response_model=BundleOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/inventory/bundles", response_model=BundleOut, status_code=status.HTTP_201_CREATED
+)
 def create_bundle(payload: BundleCreate, current_user=Depends(get_current_user)):
     if not payload.session_ids:
         raise HTTPException(
@@ -88,7 +92,10 @@ def create_bundle(payload: BundleCreate, current_user=Depends(get_current_user))
             detail="Bundle creation failed",
         )
 
-    links = [{"bundle_id": bundle["id"], "session_id": session_id} for session_id in session_ids]
+    links = [
+        {"bundle_id": bundle["id"], "session_id": session_id}
+        for session_id in session_ids
+    ]
     supabase.table("inventory_bundle_sessions").insert(links).execute()
 
     return bundle
@@ -100,7 +107,9 @@ def get_bundle(bundle_id: str, current_user=Depends(get_current_user)):
     return _get_bundle_or_404(supabase, bundle_id, current_user.id)
 
 
-@router.get("/inventory/bundles/{bundle_id}/sessions", response_model=list[BundleSessionOut])
+@router.get(
+    "/inventory/bundles/{bundle_id}/sessions", response_model=list[BundleSessionOut]
+)
 def list_bundle_sessions(bundle_id: str, current_user=Depends(get_current_user)):
     supabase = get_supabase()
     _get_bundle_or_404(supabase, bundle_id, current_user.id)
@@ -117,29 +126,21 @@ def list_bundle_sessions(bundle_id: str, current_user=Depends(get_current_user))
 
     sessions_resp = (
         supabase.table("inventory_sessions")
-        .select("id, location_id, completed_at, total_items, total_value")
+        .select(
+            "id, location_id, completed_at, total_items, total_value, locations!inner(name)"
+        )
         .eq("user_id", current_user.id)
         .in_("id", session_ids)
         .execute()
     )
-    sessions = sessions_resp.data or []
-    location_ids = list({session.get("location_id") for session in sessions if session.get("location_id")})
-    location_map = {}
-    if location_ids:
-        locations_resp = (
-            supabase.table("locations")
-            .select("id, name")
-            .in_("id", location_ids)
-            .execute()
-        )
-        location_map = {location["id"]: location["name"] for location in locations_resp.data or []}
 
     sessions_out = []
-    for session in sessions:
+    for session in sessions_resp.data or []:
+        location_name = session.get("name") if session.get("name") else "-"
         sessions_out.append(
             {
                 "session_id": session["id"],
-                "location_name": location_map.get(session.get("location_id"), "-"),
+                "location_name": location_name,
                 "completed_at": session.get("completed_at"),
                 "total_items": session.get("total_items") or 0,
                 "total_value": float(session.get("total_value") or 0),
@@ -161,5 +162,7 @@ def delete_bundle(bundle_id: str, current_user=Depends(get_current_user)):
         .execute()
     )
     if not resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found"
+        )
     return {"message": "Bundle deleted"}

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.core.supabase import get_supabase
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
@@ -9,6 +12,7 @@ security = HTTPBearer(auto_error=False)
 @dataclass
 class UserContext:
     """Extended user context with role and permissions"""
+
     id: str
     email: str
     user_type: str  # 'owner' | 'manager'
@@ -104,7 +108,19 @@ def get_current_user_context(
     owner_id = profile.get("owner_id")
 
     # Load allowed locations
-    if user_type == "owner" or not owner_id:
+    if user_type == "owner":
+        # Validate that owner_id is None for true owners
+        if owner_id is not None:
+            # Data corruption: owner has owner_id set
+            # Treat as potential security issue
+            logger.warning(
+                f"Security issue: User {user.id} has user_type='owner' but owner_id={owner_id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid user configuration. Please contact support.",
+            )
+
         # Owner sees all their locations
         locations_response = (
             supabase.table("locations")
@@ -114,16 +130,49 @@ def get_current_user_context(
             .execute()
         )
         allowed_location_ids = [loc["id"] for loc in (locations_response.data or [])]
-    else:
-        # Manager sees only assigned locations
+
+    elif user_type == "manager":
+        # Managers MUST have an owner_id
+        if not owner_id:
+            logger.warning(
+                f"Security issue: User {user.id} has user_type='manager' but no owner_id"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid user configuration. Please contact support.",
+            )
+
+        # Manager sees only assigned locations that belong to their owner
+        # Use a join to verify location ownership
         locations_response = (
             supabase.table("team_member_locations")
-            .select("location_id, team_members!inner(user_id, is_active)")
+            .select("location_id, locations!inner(user_id)")
             .eq("team_members.user_id", user.id)
             .eq("team_members.is_active", True)
             .execute()
         )
-        allowed_location_ids = [loc["location_id"] for loc in (locations_response.data or [])]
+
+        # Filter to only locations belonging to owner
+        allowed_location_ids = [
+            loc["location_id"]
+            for loc in (locations_response.data or [])
+            if loc.get("locations", {}).get("user_id") == owner_id
+        ]
+
+        # Additional security: Verify manager has assigned locations
+        if not allowed_location_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No locations assigned. Please contact your account owner.",
+            )
+    else:
+        logger.error(
+            f"Security issue: Unknown user_type '{user_type}' for user {user.id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Invalid user configuration. Please contact support.",
+        )
 
     return UserContext(
         id=user.id,

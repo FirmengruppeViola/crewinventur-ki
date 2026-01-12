@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.api.deps import get_current_user
 from app.core.supabase import get_supabase
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.utils.query_helpers import escape_like_pattern, normalize_search_query
 
 router = APIRouter()
 
@@ -18,22 +19,22 @@ def list_products(
     start = (page - 1) * limit
     end = start + limit - 1
 
-    query = (
-        supabase.table("products")
-        .select("*")
-        .eq("user_id", current_user.id)
-    )
+    query = supabase.table("products").select("*").eq("user_id", current_user.id)
 
     if category_id:
         query = query.eq("category_id", category_id)
     if q:
-        query = query.ilike("name", f"%{q}%")
+        normalized_q = normalize_search_query(q)
+        if normalized_q:
+            query = query.ilike("name", escape_like_pattern(normalized_q))
 
-    response = query.range(start, end).execute()
+    response = query.order("created_at", desc=True).range(start, end).execute()
     return response.data or []
 
 
-@router.post("/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED
+)
 def create_product(payload: ProductCreate, current_user=Depends(get_current_user)):
     supabase = get_supabase()
     response = (
@@ -121,11 +122,14 @@ def delete_product(product_id: str, current_user=Depends(get_current_user)):
 @router.get("/products/search", response_model=list[ProductOut])
 def search_products(q: str, current_user=Depends(get_current_user)):
     supabase = get_supabase()
+    normalized_q = normalize_search_query(q)
+    if not normalized_q:
+        return []
     response = (
         supabase.table("products")
         .select("*")
         .eq("user_id", current_user.id)
-        .ilike("name", f"%{q}%")
+        .ilike("name", escape_like_pattern(normalized_q))
         .limit(20)
         .execute()
     )

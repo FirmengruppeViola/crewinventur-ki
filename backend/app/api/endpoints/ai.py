@@ -6,8 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, stat
 from app.api.deps import get_current_user
 from app.core.gemini import GeminiError
 from app.core.supabase import get_supabase
-from app.services.product_recognition import recognize_product, recognize_multiple_products
+from app.services.product_recognition import (
+    recognize_product,
+    recognize_multiple_products,
+)
 from app.services.invoice_extraction import extract_invoice
+from app.utils.query_helpers import escape_like_pattern
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -52,10 +56,7 @@ async def recognize_product_endpoint(
     image_base64 = _strip_data_prefix(image_base64)
 
     categories_resp = (
-        supabase.table("categories")
-        .select("name")
-        .eq("is_system", True)
-        .execute()
+        supabase.table("categories").select("name").eq("is_system", True).execute()
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
@@ -89,10 +90,10 @@ async def recognize_product_endpoint(
             supabase.table("products")
             .select("*")
             .eq("user_id", current_user.id)
-            .ilike("name", f"%{recognition.product_name}%")
+            .ilike("name", escape_like_pattern(recognition.product_name))
         )
         if recognition.brand:
-            query = query.ilike("brand", f"%{recognition.brand}%")
+            query = query.ilike("brand", escape_like_pattern(recognition.brand))
         response = query.limit(1).execute()
         if response.data:
             existing_match = response.data[0]
@@ -156,15 +157,14 @@ async def recognize_multiple_endpoint(
     image_base64 = _strip_data_prefix(image_base64)
 
     categories_resp = (
-        supabase.table("categories")
-        .select("name")
-        .eq("is_system", True)
-        .execute()
+        supabase.table("categories").select("name").eq("is_system", True).execute()
     )
     categories = [row["name"] for row in categories_resp.data or []]
 
     try:
-        products = recognize_multiple_products(image_base64, categories, mime_type=mime_type)
+        products = recognize_multiple_products(
+            image_base64, categories, mime_type=mime_type
+        )
     except GeminiError as e:
         logger.error(f"AI multi-recognition failed: {e}")
         raise HTTPException(

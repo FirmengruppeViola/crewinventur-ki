@@ -13,7 +13,10 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    pass
+    last_price: float | None = Field(default=None, ge=0, le=100000)
+    last_supplier: str | None = None
+    ai_description: str | None = None
+    ai_confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class ProductUpdate(BaseModel):

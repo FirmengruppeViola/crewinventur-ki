@@ -52,7 +52,9 @@ def _team_member_to_out(member: dict, location_ids: list[str]) -> TeamMemberOut:
     )
 
 
-@router.post("/invite", response_model=TeamMemberOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/invite", response_model=TeamMemberOut, status_code=status.HTTP_201_CREATED
+)
 def invite_team_member(
     data: TeamMemberCreate,
     current_user: UserContext = Depends(get_current_user_context),
@@ -140,7 +142,7 @@ def list_team_members(
 
     response = (
         supabase.table("team_members")
-        .select("*")
+        .select("*, team_member_locations(location_id)")
         .eq("owner_id", current_user.id)
         .order("created_at", desc=True)
         .execute()
@@ -148,7 +150,9 @@ def list_team_members(
 
     result = []
     for member in response.data or []:
-        location_ids = _get_location_ids_for_member(supabase, member["id"])
+        location_ids = [
+            loc["location_id"] for loc in (member.get("team_member_locations") or [])
+        ]
         result.append(_team_member_to_out(member, location_ids))
 
     return result
@@ -258,7 +262,9 @@ def update_team_member(
                 {"team_member_id": member_id, "location_id": loc_id}
                 for loc_id in data.location_ids
             ]
-            supabase.table("team_member_locations").insert(location_assignments).execute()
+            supabase.table("team_member_locations").insert(
+                location_assignments
+            ).execute()
 
     # Fetch updated member
     updated = (
@@ -269,7 +275,11 @@ def update_team_member(
         .execute()
     )
 
-    location_ids = data.location_ids if data.location_ids is not None else _get_location_ids_for_member(supabase, member_id)
+    location_ids = (
+        data.location_ids
+        if data.location_ids is not None
+        else _get_location_ids_for_member(supabase, member_id)
+    )
     return _team_member_to_out(updated.data, location_ids)
 
 
@@ -399,10 +409,12 @@ def regenerate_invitation_code(
 
     response = (
         supabase.table("team_members")
-        .update({
-            "invitation_code": new_code,
-            "invitation_expires_at": expires_at.isoformat(),
-        })
+        .update(
+            {
+                "invitation_code": new_code,
+                "invitation_expires_at": expires_at.isoformat(),
+            }
+        )
         .eq("id", member_id)
         .execute()
     )
@@ -462,17 +474,21 @@ def accept_invitation(
         )
 
     # Link user to team member
-    supabase.table("team_members").update({
-        "user_id": current_user.id,
-        "invitation_accepted_at": datetime.now(timezone.utc).isoformat(),
-        "invitation_code": None,  # Clear code after use
-    }).eq("id", member["id"]).execute()
+    supabase.table("team_members").update(
+        {
+            "user_id": current_user.id,
+            "invitation_accepted_at": datetime.now(timezone.utc).isoformat(),
+            "invitation_code": None,  # Clear code after use
+        }
+    ).eq("id", member["id"]).execute()
 
     # Update user's profile to mark as manager
-    supabase.table("profiles").update({
-        "user_type": "manager",
-        "owner_id": member["owner_id"],
-    }).eq("id", current_user.id).execute()
+    supabase.table("profiles").update(
+        {
+            "user_type": "manager",
+            "owner_id": member["owner_id"],
+        }
+    ).eq("id", current_user.id).execute()
 
     # Get owner's company name
     owner_profile = (
@@ -484,14 +500,13 @@ def accept_invitation(
     )
 
     # Get location names
-    location_ids = [loc["location_id"] for loc in (member.get("team_member_locations") or [])]
+    location_ids = [
+        loc["location_id"] for loc in (member.get("team_member_locations") or [])
+    ]
     location_names = []
     if location_ids:
         locations = (
-            supabase.table("locations")
-            .select("name")
-            .in_("id", location_ids)
-            .execute()
+            supabase.table("locations").select("name").in_("id", location_ids).execute()
         )
         location_names = [loc["name"] for loc in (locations.data or [])]
 
@@ -499,6 +514,8 @@ def accept_invitation(
         success=True,
         message="Einladung erfolgreich angenommen",
         team_member_id=member["id"],
-        owner_company_name=owner_profile.data.get("company_name") if owner_profile.data else None,
+        owner_company_name=owner_profile.data.get("company_name")
+        if owner_profile.data
+        else None,
         location_names=location_names,
     )
