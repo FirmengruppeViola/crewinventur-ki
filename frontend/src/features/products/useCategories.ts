@@ -34,6 +34,7 @@ export function useCategories() {
       ),
     enabled: Boolean(token),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>

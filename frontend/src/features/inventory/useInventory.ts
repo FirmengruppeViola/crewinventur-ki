@@ -94,6 +94,7 @@ export function useInventorySessions() {
       ),
     enabled: Boolean(token),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
@@ -119,6 +120,7 @@ export function useInventorySession(sessionId?: string) {
       ),
     enabled: Boolean(token && sessionId),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
@@ -196,6 +198,7 @@ export function useSessionItems(sessionId?: string) {
       ),
     enabled: Boolean(token && sessionId),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
@@ -390,6 +393,7 @@ export function useMissingPrices(sessionId?: string) {
       ),
     enabled: Boolean(token && sessionId),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>

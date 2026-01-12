@@ -28,6 +28,7 @@ export function useLocations() {
       apiRequest<Location[]>('/api/v1/locations', { method: 'GET' }, token),
     enabled: Boolean(token),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
@@ -50,6 +51,7 @@ export function useLocation(locationId?: string) {
       ),
     enabled: Boolean(token && locationId),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>

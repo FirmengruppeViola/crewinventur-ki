@@ -57,6 +57,7 @@ export function useProducts(params?: { categoryId?: string; query?: string }) {
       ),
     enabled: Boolean(token),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
@@ -80,6 +81,7 @@ export function useProduct(productId?: string) {
       ),
     enabled: Boolean(token && productId),
     staleTime: 30_000,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: () =>
