@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { authStorage } from '../../lib/authStorage'
@@ -227,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userContextReady, setUserContextReady] = useState(false)
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [hasCacheWarmed, setHasCacheWarmed] = useState(false)
+  const lastLoadedUserIdRef = useRef<string | null>(null)
   const setAuth = useAuthStore((state) => state.setAuth)
   const setUserContext = useAuthStore((state) => state.setUserContext)
   const clearAuth = useAuthStore((state) => state.clearAuth)
@@ -235,7 +236,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
 
-    const loadContextWithTimeout = async (userId: string) => {
+    const loadContextWithTimeout = async (userId: string, force = false) => {
+      // Skip if already loaded for this user (prevents re-renders)
+      if (!force && lastLoadedUserIdRef.current === userId) {
+        return
+      }
+      
       setUserContextReady(false)
       try {
         await Promise.race([
@@ -247,6 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setTimeout(() => reject(new Error('Auth context timeout')), 5000)
           ),
         ])
+        // Mark as loaded for this user
+        lastLoadedUserIdRef.current = userId
        } catch (e) {
         console.error('Auth context load failed:', e)
         // Show error toast on timeout
@@ -279,7 +287,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           JSON.stringify(nextSession),
         )
         void persistTokens(nextSession)
-        void loadContextWithTimeout(nextSession.user.id)
+        
+        // Only load context if user changed or first time (force on bootstrap)
+        void loadContextWithTimeout(nextSession.user.id, options.force)
         
         // Only warm cache once per app session
         if (!hasCacheWarmed && !options.skipWarmup) {

@@ -56,10 +56,6 @@ export function useProducts(params?: { categoryId?: string; query?: string }) {
         token,
       ),
     enabled: Boolean(token),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<Product[]>(queryKey),
   })
@@ -80,10 +76,6 @@ export function useProduct(productId?: string) {
         token,
       ),
     enabled: Boolean(token && productId),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       productId
         ? queryClient.getQueryData<Product>(queryKey)

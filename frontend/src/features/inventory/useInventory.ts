@@ -93,10 +93,6 @@ export function useInventorySessions() {
         token,
       ),
     enabled: Boolean(token),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<InventorySession[]>([
         'inventory',
@@ -119,10 +115,6 @@ export function useInventorySession(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<InventorySession>(queryKey)
@@ -197,10 +189,6 @@ export function useSessionItems(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<InventoryItem[]>(queryKey)
@@ -392,10 +380,6 @@ export function useMissingPrices(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
-    staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<MissingPricesResponse>([

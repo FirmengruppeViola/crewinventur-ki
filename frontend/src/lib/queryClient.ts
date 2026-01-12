@@ -50,17 +50,17 @@ const queryClientConfig: QueryClientConfig = {
   defaultOptions: {
     queries: {
       // =================================================================
-      // CACHING - Keep data fresh but avoid unnecessary refetches
+      // CACHING - Data stays fresh for entire session (native app behavior)
       // =================================================================
-      staleTime: 1000 * 60 * 5, // 5 minutes - data considered fresh
-      gcTime: 1000 * 60 * 30, // 30 minutes - keep in cache for instant back navigation
+      staleTime: Infinity, // Data NEVER goes stale automatically - manual invalidation only
+      gcTime: 1000 * 60 * 60, // 1 hour - keep in cache for entire session
 
       // =================================================================
-      // REFETCH BEHAVIOR - Smart refetching for hybrid apps
+      // REFETCH BEHAVIOR - NO automatic refetching for native app feel
       // =================================================================
-      refetchOnWindowFocus: false, // Don't refetch when app regains focus (annoying on mobile)
-      refetchOnReconnect: true, // Refetch when network reconnects
-      refetchOnMount: true, // Refetch on mount if stale
+      refetchOnWindowFocus: false, // Don't refetch when app regains focus
+      refetchOnReconnect: false, // Don't refetch on reconnect - user controls refresh
+      refetchOnMount: false, // CRITICAL: Never refetch on mount - use cached data
 
       // =================================================================
       // RETRY LOGIC - Don't spam the server on errors
@@ -69,9 +69,9 @@ const queryClientConfig: QueryClientConfig = {
       retryDelay,
 
       // =================================================================
-      // NETWORK MODE - Handle offline gracefully
+      // NETWORK MODE - Standard mode, no background refetching
       // =================================================================
-      networkMode: 'offlineFirst', // Return cached data immediately, fetch in background
+      networkMode: 'online', // Standard mode - no background refetch shenanigans
 
       // =================================================================
       // STRUCTURAL SHARING - Performance optimization
@@ -81,11 +81,11 @@ const queryClientConfig: QueryClientConfig = {
 
     mutations: {
       // =================================================================
-      // MUTATION CONFIG - Optimistic updates, smart retries
+      // MUTATION CONFIG - Standard behavior, manual retries
       // =================================================================
       retry: 1, // Retry mutations once on failure
       retryDelay: 1000,
-      networkMode: 'offlineFirst', // Queue mutations when offline
+      networkMode: 'online', // Standard mode - fail if offline
 
       // Global error handler for mutations
       onError: (error) => {
