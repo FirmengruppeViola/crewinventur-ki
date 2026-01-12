@@ -88,11 +88,8 @@ export function PriceReviewPage() {
     navigate(`/inventory/sessions/${sessionId}/summary`)
   }
 
-  if (!missingPrices) {
-    return null
-  }
-
-  if (!items.length) {
+  // Show stable layout even while loading - prevents "jump"
+  if (!missingPrices || !items.length) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="p-6 text-center max-w-sm mx-auto">
