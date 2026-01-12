@@ -93,6 +93,9 @@ export function useInventorySessions() {
         token,
       ),
     enabled: Boolean(token),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<InventorySession[]>([
         'inventory',
@@ -380,6 +383,9 @@ export function useMissingPrices(sessionId?: string) {
         token,
       ),
     enabled: Boolean(token && sessionId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<MissingPricesResponse>([

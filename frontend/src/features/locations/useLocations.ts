@@ -27,6 +27,9 @@ export function useLocations() {
     queryFn: () =>
       apiRequest<Location[]>('/api/v1/locations', { method: 'GET' }, token),
     enabled: Boolean(token),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       queryClient.getQueryData<Location[]>(['locations']),
   })
@@ -46,6 +49,9 @@ export function useLocation(locationId?: string) {
         token,
       ),
     enabled: Boolean(token && locationId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     placeholderData: () =>
       locationId
         ? queryClient.getQueryData<Location>(['locations', locationId])
