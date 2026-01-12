@@ -8,10 +8,8 @@ import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { Input } from '../../components/ui/Input'
 import { BottomSheet } from '../../components/ui/BottomSheet'
-import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useOnboarding } from '../../hooks/useOnboarding'
-import { useDelayedFlag } from '../../hooks/useDelayedFlag'
 import { useViewNavigate } from '../../hooks/useViewNavigate'
 import { useLocations } from '../../features/locations/useLocations'
 import {
@@ -81,11 +79,9 @@ export function InventoryPage() {
   )
   
   const { data: locations } = useLocations()
-  const { data: sessions, isLoading } = useInventorySessions()
+  const { data: sessions } = useInventorySessions()
   const createSession = useCreateInventorySession()
   const createBundle = useCreateInventoryBundle()
-  const isInitialLoading = isLoading && !sessions
-  const showSkeleton = useDelayedFlag(isInitialLoading)
   
   const locationOptions = [
     { label: 'Location wählen', value: '' },
@@ -99,7 +95,6 @@ export function InventoryPage() {
   const sessionsList = sessions ?? []
   const activeSessions = sessionsList.filter((s) => s.status !== 'completed')
   const completedSessions = sessionsList.filter((s) => s.status === 'completed')
-  const canShowEmptyStates = !isInitialLoading
   
   useEffect(() => {
     if (!openCreate) return
@@ -160,13 +155,9 @@ export function InventoryPage() {
     }
   }
   
-  if (showSkeleton) {
-    return <ListPageSkeleton />
-  }
-  
   return (
     <div className="space-y-8 pb-40">
-      <header className="px-1 flex items-center justify-between animate-fade-in-up">
+      <header className="px-1 flex items-center justify-between">
         <div>
            <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventur</h1>
            <p className="text-sm text-muted-foreground">
@@ -185,7 +176,7 @@ export function InventoryPage() {
         </div>
       </header>
       
-      <section className="space-y-4 animate-fade-in-up delay-100">
+      <section className="space-y-4">
         <h2 className="px-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
           <Clock className="h-4 w-4" /> Aktiv
         </h2>
@@ -230,14 +221,14 @@ export function InventoryPage() {
               </Link>
             ))}
           </div>
-        ) : canShowEmptyStates ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center animate-fade-in-up">
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
             <p className="text-sm text-muted-foreground">Keine aktiven Zählungen.</p>
           </div>
-        ) : null}
+        )}
       </section>
       
-      <section className="space-y-4 animate-fade-in-up delay-200">
+      <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
              <CheckCircle2 className="h-4 w-4" /> Abgeschlossen
@@ -276,13 +267,13 @@ export function InventoryPage() {
               ))}
             </div>
           </div>
-        ) : canShowEmptyStates ? (
+        ) : (
            <EmptyState
              title="Keine Historie"
              description="Sobald du eine Session abschließt, erscheint sie hier."
              action={null}
            />
-        ) : null}
+        )}
       </section>
       
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Neue Inventur starten">
