@@ -31,6 +31,7 @@ type InventoryItemAccordionProps = {
   onDelete: () => void
   isExpanded: boolean
   onToggle: () => void
+  isDeleting?: boolean
 }
 
 export function InventoryItemAccordion({
@@ -40,29 +41,28 @@ export function InventoryItemAccordion({
   onDelete,
   isExpanded,
   onToggle,
+  isDeleting,
 }: InventoryItemAccordionProps) {
   const [localFullQty, setLocalFullQty] = useState(item.full_quantity || 0)
   const [localPartialQty, setLocalPartialQty] = useState(item.partial_quantity || 0)
   const [localPartialPct, setLocalPartialPct] = useState(item.partial_fill_percent || 0)
   const [localPrice, setLocalPrice] = useState(item.unit_price || 0)
   const [localNotes, setLocalNotes] = useState(item.notes || '')
-
-  // Live-Synchronisation: Wenn Dezimalzahl geändert wird, Prozent aktualisieren
+  
   const handlePartialQtyChange = (value: number) => {
     setLocalPartialQty(value)
     setLocalPartialPct(Math.round(value * 100))
   }
-
-  // Live-Synchronisation: Wenn Prozent geändert wird, Dezimalzahl aktualisieren
+ 
   const handlePartialPctChange = (value: number) => {
     setLocalPartialPct(value)
     setLocalPartialQty(value / 100)
   }
-
+ 
   const displayQty = localPartialQty > 0
     ? `${localFullQty} + ${localPartialPct}%`
     : localFullQty.toString()
-
+  
   const handleSave = () => {
     onUpdate({
       full_quantity: localFullQty,
@@ -72,7 +72,7 @@ export function InventoryItemAccordion({
       notes: localNotes,
     })
   }
-
+ 
   const getScanMethodLabel = () => {
     switch (item.scan_method) {
       case 'photo':
@@ -87,24 +87,23 @@ export function InventoryItemAccordion({
         return ''
     }
   }
-
+ 
   return (
     <div className="border-b border-border/50 last:border-0">
-      {/* Header - Immer sichtbar */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 py-3 px-2 text-left hover:bg-accent/30 transition-colors"
+        className="group w-full flex items-center gap-3 py-3.5 px-2 text-left hover:bg-primary/10 transition-all duration-200"
       >
         <div className="w-6 h-6 flex items-center justify-center">
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:scale-110" />
           )}
         </div>
         
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">
+          <p className="font-medium text-foreground group-hover:text-primary transition-colors">
             {product.brand ? `${product.brand} ` : ''}{product.name}
           </p>
           <p className="text-sm text-muted-foreground">
@@ -113,19 +112,17 @@ export function InventoryItemAccordion({
         </div>
         
         <div className="text-right">
-          <p className="font-semibold">
+          <p className="font-semibold text-foreground">
             {(item.total_price ?? 0).toFixed(2)} EUR
           </p>
         </div>
       </button>
-
-      {/* Expanded Content - Alle Bearbeitungspunkte */}
+ 
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-4 bg-accent/10">
-          {/* Anbruch-Bearbeitung */}
-          <div className="space-y-3">
+        <div className="px-4 pb-4 space-y-4 bg-primary/5 animate-fade-in-up">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">
+              <label className="text-sm text-muted-foreground mb-2 block">
                 Volle Einheiten
               </label>
               <input
@@ -134,10 +131,10 @@ export function InventoryItemAccordion({
                 step="1"
                 value={localFullQty}
                 onChange={(e) => setLocalFullQty(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-3 py-2.5 rounded-xl bg-background border-2 border-border focus:border-primary focus:border-primary/20 outline-none transition-all"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">
                   Anbruch (0-1)
@@ -149,7 +146,7 @@ export function InventoryItemAccordion({
                   step="0.01"
                   value={localPartialQty}
                   onChange={(e) => handlePartialQtyChange(Math.max(0, Math.min(1, Number(e.target.value))))}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border-2 border-border focus:border-primary focus:border-primary/20 outline-none transition-all"
                 />
               </div>
               <div>
@@ -162,13 +159,12 @@ export function InventoryItemAccordion({
                   max="100"
                   value={localPartialPct}
                   onChange={(e) => handlePartialPctChange(Math.max(0, Math.min(100, Number(e.target.value))))}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full px-3 py-2.5 rounded-xl bg-background border-2 border-border focus:border-primary focus:border-primary/20 outline-none transition-all"
                 />
               </div>
             </div>
           </div>
-
-          {/* Preis-Bearbeitung */}
+          
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">
               Einzelpreis (EUR)
@@ -179,11 +175,10 @@ export function InventoryItemAccordion({
               step="0.01"
               value={localPrice}
               onChange={(e) => setLocalPrice(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              className="w-full px-3 py-2.5 rounded-xl bg-background border-2 border-border focus:border-primary focus:border-primary/20 outline-none transition-all"
             />
           </div>
-
-          {/* Notizen */}
+          
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">
               Notizen
@@ -193,44 +188,41 @@ export function InventoryItemAccordion({
               onChange={(e) => setLocalNotes(e.target.value)}
               placeholder="z.B. Flasche beschädigt, Sonderangebot..."
               rows={2}
-              className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+              className="w-full px-3 py-2.5 rounded-xl bg-background border-2 border-border focus:border-primary focus:border-primary/20 outline-none resize-none transition-all"
             />
           </div>
-
-          {/* Scan-Info */}
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-            <Scan className="h-4 w-4 text-muted-foreground" />
+          
+          <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-secondary/40">
+            <Scan className="h-4 w-4 text-primary" />
             <span className="text-sm text-muted-foreground">
               {getScanMethodLabel()}
             </span>
             {item.ai_confidence && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-primary font-medium">
                 · KI: {Math.round(item.ai_confidence * 100)}%
               </span>
             )}
           </div>
-
-          {/* Vergleich mit vorheriger Inventur */}
+          
           {item.previous_quantity !== null && item.quantity_difference !== null && (
-            <div className={`p-2 rounded-lg ${
+            <div className={`p-2.5 rounded-xl ${
               item.quantity_difference > 0 
-                ? 'bg-emerald-500/10 text-emerald-600'
-                : 'bg-amber-500/10 text-amber-600'
+                ? 'bg-success/10 text-success'
+                : 'bg-warning/10 text-warning'
             }`}>
-              <span className="text-sm">
+              <span className="text-sm font-medium">
                 Vorher: {item.previous_quantity} · 
                 Differenz: {item.quantity_difference > 0 ? '+' : ''}{item.quantity_difference}
               </span>
             </div>
           )}
-
-          {/* Action Buttons */}
+          
           <div className="flex gap-2 pt-2 border-t border-border/50">
             <Button
               variant="outline"
               size="sm"
               onClick={handleSave}
-              className="flex-1"
+              className="flex-1 hover:border-primary/50"
             >
               <Check className="h-4 w-4 mr-1" />
               Speichern
@@ -238,11 +230,12 @@ export function InventoryItemAccordion({
             <Button
               variant="danger"
               size="sm"
+              disabled={isDeleting}
               onClick={onDelete}
               className="flex-1"
             >
               <Trash2 className="h-4 w-4 mr-1" />
-              Entfernen
+              {isDeleting ? 'Lösche...' : 'Entfernen'}
             </Button>
           </div>
         </div>
