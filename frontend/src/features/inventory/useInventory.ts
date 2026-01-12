@@ -19,11 +19,19 @@ export type InventoryItem = {
   id: string
   session_id: string
   product_id: string
-  quantity: number | null
-  unit_price: number | null
-  total_price: number | null
-  previous_quantity: number | null
-  quantity_difference: number | null
+  // Neue Anbruch-Felder
+  full_quantity?: number | null
+  partial_quantity?: number | null
+  partial_fill_percent?: number | null
+  // Legacy für Kompatibilität
+  quantity?: number | null
+  unit_price?: number | null
+  total_price?: number | null
+  previous_quantity?: number | null
+  quantity_difference?: number | null
+  scanned_at?: string | null
+  scan_method?: 'photo' | 'shelf' | 'barcode' | 'manual' | null
+  ai_confidence?: number | null
   notes?: string | null
 }
 
@@ -58,6 +66,10 @@ type ItemInput = {
 }
 
 type ItemUpdate = {
+  full_quantity?: number
+  partial_quantity?: number
+  partial_fill_percent?: number
+  // Legacy für Kompatibilität
   quantity?: number
   unit_price?: number
   notes?: string | null
