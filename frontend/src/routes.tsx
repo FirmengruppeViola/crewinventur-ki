@@ -35,6 +35,9 @@ import { TermsPage } from './pages/legal/TermsPage'
 import { PrivacyPage } from './pages/legal/PrivacyPage'
 import { ImprintPage } from './pages/legal/ImprintPage'
 
+// Support/Tutorial - lazy load
+const SupportPage = lazyLoad(() => import('./pages/support'), 'SupportPage')
+
 // =============================================================================
 // PROTECTED ROUTES - Lazy loaded (code splitting)
 // =============================================================================
@@ -87,6 +90,7 @@ export const publicRoutes: RouteObject[] = [
   { path: '/terms', element: <TermsPage /> },
   { path: '/privacy', element: <PrivacyPage /> },
   { path: '/imprint', element: <ImprintPage /> },
+  { path: '/support', element: <SupportPage /> },
 ]
 
 export const protectedRoutes: RouteObject[] = [

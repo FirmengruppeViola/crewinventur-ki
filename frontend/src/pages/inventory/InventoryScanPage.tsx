@@ -51,6 +51,7 @@ export function InventoryScanPage() {
 
   // Manual product selection (when AI fails)
   const [showManualSelect, setShowManualSelect] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
 
   const handleCapture = async () => {
     setScanState('capturing')
@@ -521,7 +522,10 @@ export function InventoryScanPage() {
           <div className="space-y-3">
             <Button
               className="w-full h-14"
-              onClick={() => {
+              disabled={isNavigating}
+              onClick={async () => {
+                if (isNavigating) return
+                setIsNavigating(true)
                 // Navigate to product creation with pre-filled AI data
                 const params = new URLSearchParams()
                 if (scanResult?.recognized_product) {
@@ -540,7 +544,10 @@ export function InventoryScanPage() {
             <Button
               variant="secondary"
               className="w-full h-14"
+              disabled={isNavigating}
               onClick={() => {
+                if (isNavigating) return
+                setIsNavigating(true)
                 // Navigate to product list for manual selection
                 navigate(`/products?select=true&returnTo=/inventory/sessions/${sessionId}/scan`)
               }}
@@ -551,7 +558,10 @@ export function InventoryScanPage() {
             <Button
               variant="outline"
               className="w-full h-14"
-              onClick={() => setShowManualSelect(false)}
+              onClick={() => {
+                setIsNavigating(false)
+                setShowManualSelect(false)
+              }}
             >
               Abbrechen
             </Button>

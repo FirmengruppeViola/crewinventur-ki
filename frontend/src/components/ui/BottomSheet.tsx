@@ -10,6 +10,7 @@ type BottomSheetProps = {
   children: ReactNode
   className?: string
   placement?: 'bottom' | 'center'
+  showDragHandle?: boolean
 }
 
 export function BottomSheet({
@@ -18,7 +19,8 @@ export function BottomSheet({
   title,
   children,
   className,
-  placement = 'bottom'
+  placement = 'bottom',
+  showDragHandle = true,
 }: BottomSheetProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
@@ -27,7 +29,6 @@ export function BottomSheet({
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true)
-      // Small delay to allow browser to paint the 'transform-y-full' state first
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsVisible(true)
@@ -35,10 +36,9 @@ export function BottomSheet({
       })
     } else {
       setIsVisible(false)
-      // Wait for animation to finish before unmounting
       const timer = setTimeout(() => {
         setShouldRender(false)
-      }, 300) // Match duration-300
+      }, 300)
       return () => clearTimeout(timer)
     }
   }, [isOpen])
@@ -53,57 +53,54 @@ export function BottomSheet({
           isCentered ? 'items-center px-4 py-6' : 'items-end sm:items-center'
         )}
       >
-        {/* Backdrop */}
         <div
           className={cn(
-            'absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300 ease-spring',
+            'absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300',
             isVisible ? 'opacity-100' : 'opacity-0'
           )}
           onClick={onClose}
           role="presentation"
         />
 
-        {/* Sheet Content */}
         <div
           className={cn(
-            'relative z-10 w-full max-w-lg bg-card p-6 shadow-2xl transition-all duration-300 ease-spring',
+            'relative z-10 w-full max-w-lg glass-card shadow-2xl transition-all duration-300 ease-spring',
             isCentered
-              ? 'rounded-2xl border border-white/10'
-              : 'rounded-t-3xl border-t border-white/10 sm:rounded-2xl sm:border',
+              ? 'rounded-3xl p-6'
+              : 'rounded-t-3xl border-t border-border sm:rounded-3xl sm:border p-6',
             isCentered
               ? isVisible
                 ? 'translate-y-0 scale-100 opacity-100'
-                : 'translate-y-4 scale-95 opacity-0'
+                : 'translate-y-8 scale-95 opacity-0'
               : isVisible
                 ? 'translate-y-0 scale-100'
                 : 'translate-y-full scale-95',
-            className
+            className,
           )}
           role="dialog"
           aria-modal="true"
         >
-          {!isCentered && (
-            <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-muted sm:hidden" />
+          {!isCentered && showDragHandle && (
+            <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-muted" />
           )}
 
           {title && (
-            <div className="mb-4 pr-8">
-              <h2 className="text-lg font-bold text-foreground">{title}</h2>
+            <div className="mb-5 flex items-start justify-between">
+              <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200 hover:scale-110"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
           )}
 
-          <div className="mb-4 max-h-[80vh] overflow-y-auto">
+          <div className="max-h-[75vh] overflow-y-auto scrollbar-thin pb-2">
             {children}
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
       </div>
     </OverlayPortal>

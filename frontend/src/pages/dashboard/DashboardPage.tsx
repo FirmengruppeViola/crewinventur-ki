@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, MapPin, Package, Play, History } from 'lucide-react'
+import { ArrowRight, MapPin, Package, Play, History, TrendingUp } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useLocations } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
@@ -14,31 +14,21 @@ export function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="bg-background min-h-screen">
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
-          <div className="flex items-center gap-4 px-4 py-4">
-            <div className="h-10 w-10 rounded-full bg-accent animate-pulse" />
-            <div className="flex-1">
-              <div className="h-5 w-32 bg-accent rounded animate-pulse" />
-              <div className="h-3 w-24 bg-accent rounded animate-pulse mt-1" />
-            </div>
-          </div>
-        </header>
-        <div className="p-4 space-y-4">
-          <div className="h-24 bg-accent rounded-2xl animate-pulse" />
-          <div className="grid grid-cols-3 gap-3">
-            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
-            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
-            <div className="h-20 bg-accent rounded-2xl animate-pulse" />
-          </div>
-          <div className="h-32 bg-accent rounded-2xl animate-pulse" />
+      <div className="space-y-6">
+        <div className="h-8 w-32 animate-shimmer rounded-xl bg-muted" />
+        <div className="h-4 w-64 animate-shimmer rounded-xl bg-muted" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
+          <div className="col-span-2 row-span-2 h-48 animate-shimmer rounded-3xl bg-muted" />
+          <div className="h-32 animate-shimmer rounded-2xl bg-muted" />
+          <div className="h-32 animate-shimmer rounded-2xl bg-muted" />
+          <div className="col-span-2 h-32 animate-shimmer rounded-2xl bg-muted" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       <header className="flex flex-col gap-1 px-1">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Übersicht</h1>
         <p className="text-muted-foreground">
@@ -48,31 +38,31 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
         {/* Hero Card - Start Inventory */}
-        <Link viewTransition 
+        <Link 
           to="/inventory" 
-          className="group col-span-2 row-span-2 relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/80 to-indigo-600 p-6 text-white shadow-2xl transition-transform hover:scale-[1.02] active:scale-95"
+          className="group col-span-2 row-span-2 relative overflow-hidden rounded-3xl gradient-primary p-6 text-white shadow-2xl shadow-primary/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/40 active:scale-95"
         >
           <div className="relative z-10 flex h-full flex-col justify-between">
-            <div className="rounded-2xl bg-white/20 p-3 w-fit backdrop-blur-md">
+            <div className="rounded-2xl bg-white/20 p-4 w-fit backdrop-blur-md group-hover:scale-110 transition-transform">
               <Play className="h-8 w-8 fill-white" />
             </div>
             <div>
               <h2 className="text-2xl font-bold">Inventur starten</h2>
-              <p className="mt-1 text-indigo-100 opacity-90">Neue Erfassung beginnen</p>
+              <p className="mt-2 text-white/90 opacity-90">Neue Erfassung beginnen</p>
             </div>
           </div>
-          {/* Decorative Circle */}
-          <div className="absolute -bottom-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-3xl transition-transform group-hover:scale-150" />
+          <div className="absolute -bottom-16 -right-16 h-64 w-64 rounded-full bg-white/10 blur-3xl transition-transform group-hover:scale-125 animate-float" />
+          <div className="absolute -top-8 -left-8 h-32 w-32 rounded-full bg-white/5 blur-2xl animate-float-delayed" />
         </Link>
 
         {/* Locations Stat - Clickable */}
-        <Link viewTransition to="/locations" className="col-span-1">
-          <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
+        <Link to="/locations" className="col-span-1 group">
+          <Card className="h-full flex flex-col justify-between p-5 hover:border-primary/50 transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer glass-card">
             <div className="flex items-start justify-between">
-              <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-500">
+              <div className="rounded-xl bg-success/10 p-2.5 text-success group-hover:scale-110 transition-transform">
                 <MapPin className="h-5 w-5" />
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <TrendingUp className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
             </div>
             <div>
               <p className="text-3xl font-bold text-foreground">{locations?.length ?? 0}</p>
@@ -82,12 +72,13 @@ export function DashboardPage() {
         </Link>
 
         {/* Products Stat - Clickable */}
-        <Link viewTransition to="/products" className="col-span-1">
-          <Card className="h-full flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer">
+        <Link to="/products" className="col-span-1 group">
+          <Card className="h-full flex flex-col justify-between p-5 hover:border-primary/50 transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer glass-card">
             <div className="flex items-start justify-between">
-              <div className="rounded-xl bg-amber-500/10 p-2 text-amber-500">
+              <div className="rounded-xl bg-warning/10 p-2.5 text-warning group-hover:scale-110 transition-transform">
                 <Package className="h-5 w-5" />
               </div>
+              <TrendingUp className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
             </div>
             <div>
               <p className="text-3xl font-bold text-foreground">{products?.length ?? 0}</p>
@@ -97,9 +88,9 @@ export function DashboardPage() {
         </Link>
 
         {/* Recent Activity / Sessions */}
-        <Card className="col-span-2 flex flex-col justify-between p-5 hover:bg-zinc-900/80 transition-colors">
+        <Card className="col-span-2 flex flex-col justify-between p-5 hover:border-primary/30 transition-all hover:-translate-y-0.5 glass-card">
           <div className="flex items-center gap-3 mb-4">
-             <div className="rounded-xl bg-blue-500/10 p-2 text-blue-500">
+             <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
               <History className="h-5 w-5" />
             </div>
             <span className="font-semibold">Letzte Aktivitäten</span>
@@ -108,9 +99,9 @@ export function DashboardPage() {
           <div className="space-y-3">
              {sessions && sessions.length > 0 ? (
                sessions.slice(0, 2).map((session: InventorySession) => (
-                 <div key={session.id} className="flex items-center justify-between text-sm">
+                 <div key={session.id} className="flex items-center justify-between text-sm p-2 rounded-xl hover:bg-secondary/50 transition-colors">
                     <span className="text-muted-foreground">Session #{session.id.slice(0,4)}</span>
-                    <span className="font-medium text-emerald-500">Abgeschlossen</span>
+                    <span className="font-medium text-success">Abgeschlossen</span>
                  </div>
                ))
              ) : (
@@ -118,8 +109,8 @@ export function DashboardPage() {
              )}
           </div>
           
-          <Link viewTransition to="/inventory/sessions" className="mt-4 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-            Alle anzeigen <ArrowRight className="h-3 w-3" />
+          <Link to="/inventory/sessions" className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary hover:underline group">
+            Alle anzeigen <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
           </Link>
         </Card>
       </div>
@@ -127,4 +118,3 @@ export function DashboardPage() {
     </div>
   )
 }
-

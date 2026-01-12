@@ -1,9 +1,5 @@
 import { cn } from '../../lib/utils'
 
-// =============================================================================
-// BASE SKELETON COMPONENT
-// =============================================================================
-
 type SkeletonProps = {
   className?: string
   animate?: boolean
@@ -13,17 +9,14 @@ export function Skeleton({ className, animate = true }: SkeletonProps) {
   return (
     <div
       className={cn(
-        'rounded-md bg-muted',
-        animate && 'animate-pulse',
-        className
+        'rounded-xl bg-muted',
+        animate && 'animate-shimmer overflow-hidden',
+        className,
       )}
+      style={animate ? { backgroundImage: 'linear-gradient(to right, transparent 0%, hsl(var(--muted)) 50%, transparent 100%)', backgroundSize: '1000px 100%' } : undefined}
     />
   )
 }
-
-// =============================================================================
-// SKELETON PRIMITIVES
-// =============================================================================
 
 export function SkeletonText({ className, lines = 1 }: { className?: string; lines?: number }) {
   return (
@@ -52,14 +45,9 @@ export function SkeletonCircle({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' | 'x
 }
 
 export function SkeletonButton({ className }: { className?: string }) {
-  return <Skeleton className={cn('h-10 w-24 rounded-lg', className)} />
+  return <Skeleton className={cn('h-11 w-24 rounded-xl', className)} />
 }
 
-// =============================================================================
-// SKELETON PATTERNS - Reusable layouts
-// =============================================================================
-
-/** Card with icon, title, and description */
 export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center gap-4 rounded-2xl border border-border bg-card p-4', className)}>
@@ -68,12 +56,11 @@ export function SkeletonCard({ className }: { className?: string }) {
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-3 w-48" />
       </div>
-      <Skeleton className="h-5 w-5" />
+      <Skeleton className="h-5 w-5 rounded-md" />
     </div>
   )
 }
 
-/** List of skeleton cards */
 export function SkeletonCardList({ count = 3, className }: { count?: number; className?: string }) {
   return (
     <div className={cn('grid gap-4', className)}>
@@ -84,12 +71,11 @@ export function SkeletonCardList({ count = 3, className }: { count?: number; cla
   )
 }
 
-/** Stats grid (2 columns) */
 export function SkeletonStats({ className }: { className?: string }) {
   return (
     <div className={cn('grid grid-cols-2 gap-3', className)}>
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="rounded-xl border border-border bg-card p-4">
+        <div key={i} className="rounded-2xl border border-border bg-card p-4">
           <Skeleton className="mb-2 h-8 w-16" />
           <Skeleton className="h-3 w-20" />
         </div>
@@ -98,7 +84,6 @@ export function SkeletonStats({ className }: { className?: string }) {
   )
 }
 
-/** Page header skeleton */
 export function SkeletonHeader({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center justify-between px-1', className)}>
@@ -111,7 +96,6 @@ export function SkeletonHeader({ className }: { className?: string }) {
   )
 }
 
-/** Form skeleton */
 export function SkeletonForm({ fields = 3 }: { fields?: number }) {
   return (
     <div className="space-y-6">
@@ -126,35 +110,6 @@ export function SkeletonForm({ fields = 3 }: { fields?: number }) {
   )
 }
 
-/** Table skeleton */
-export function SkeletonTable({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="rounded-xl border border-border">
-      {/* Header */}
-      <div className="flex gap-4 border-b border-border bg-muted/50 p-4">
-        <Skeleton className="h-4 w-1/4" />
-        <Skeleton className="h-4 w-1/4" />
-        <Skeleton className="h-4 w-1/4" />
-        <Skeleton className="h-4 w-1/4" />
-      </div>
-      {/* Rows */}
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4 border-b border-border p-4 last:border-0">
-          <Skeleton className="h-4 w-1/4" />
-          <Skeleton className="h-4 w-1/4" />
-          <Skeleton className="h-4 w-1/4" />
-          <Skeleton className="h-4 w-1/4" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// =============================================================================
-// PAGE SKELETONS - Full page loading states
-// =============================================================================
-
-/** Generic page skeleton with header and cards */
 export function PageSkeleton() {
   return (
     <div className="space-y-8 p-4 pb-40">
@@ -164,7 +119,6 @@ export function PageSkeleton() {
   )
 }
 
-/** Dashboard page skeleton */
 export function DashboardSkeleton() {
   return (
     <div className="space-y-8 p-4 pb-40">
@@ -178,7 +132,6 @@ export function DashboardSkeleton() {
   )
 }
 
-/** List page skeleton (Locations, Products, etc.) */
 export function ListPageSkeleton() {
   return (
     <div className="space-y-8 p-4 pb-40">
@@ -188,7 +141,6 @@ export function ListPageSkeleton() {
   )
 }
 
-/** Detail page skeleton */
 export function DetailPageSkeleton() {
   return (
     <div className="space-y-8 p-4 pb-40">
@@ -203,7 +155,6 @@ export function DetailPageSkeleton() {
   )
 }
 
-/** Form page skeleton */
 export function FormPageSkeleton() {
   return (
     <div className="space-y-8 p-4 pb-40">
@@ -216,37 +167,33 @@ export function FormPageSkeleton() {
   )
 }
 
-/** Inventory session skeleton */
 export function SessionSkeleton() {
   return (
     <div className="space-y-6 p-4 pb-40">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-4 w-24" />
         </div>
-        <Skeleton className="h-10 w-24 rounded-lg" />
+        <Skeleton className="h-11 w-24 rounded-xl" />
       </div>
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-3 text-center">
+          <div key={i} className="rounded-2xl border border-border bg-card p-3 text-center">
             <Skeleton className="mx-auto mb-1 h-6 w-12" />
             <Skeleton className="mx-auto h-3 w-16" />
           </div>
         ))}
       </div>
-      {/* Items */}
       <div className="space-y-3">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <Skeleton className="h-12 w-12 rounded-lg" />
+          <div key={i} className="flex items-center gap-3 rounded-2xl border border-border p-3">
+            <Skeleton className="h-12 w-12 rounded-xl" />
             <div className="flex-1 space-y-1">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-3 w-24" />
             </div>
-            <Skeleton className="h-8 w-16 rounded-lg" />
+            <Skeleton className="h-8 w-16 rounded-xl" />
           </div>
         ))}
       </div>

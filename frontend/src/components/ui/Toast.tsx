@@ -1,4 +1,4 @@
-import { CheckCircle, Info, TriangleAlert, X } from 'lucide-react'
+import { CheckCircle, Info, TriangleAlert, XCircle, X } from 'lucide-react'
 import { useUiStore, type ToastMessage } from '../../stores/uiStore'
 import { cn } from '../../lib/utils'
 
@@ -7,15 +7,17 @@ type ToastProps = ToastMessage & {
 }
 
 const typeStyles = {
-  success: 'border-green-200 bg-green-50 text-green-900',
-  error: 'border-red-200 bg-red-50 text-red-900',
-  info: 'border-blue-200 bg-blue-50 text-blue-900',
+  success: 'border-success/50 bg-success/10 text-success-foreground',
+  error: 'border-destructive/50 bg-destructive/10 text-destructive-foreground',
+  info: 'border-primary/50 bg-primary/10 text-primary-foreground',
+  warning: 'border-warning/50 bg-warning/10 text-warning-foreground',
 }
 
 const typeIcons = {
   success: CheckCircle,
-  error: TriangleAlert,
+  error: XCircle,
   info: Info,
+  warning: TriangleAlert,
 }
 
 export function Toast({ message, type, onClose }: ToastProps) {
@@ -23,16 +25,18 @@ export function Toast({ message, type, onClose }: ToastProps) {
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded-lg border px-4 py-3 shadow-sm',
+        'flex items-start gap-3 rounded-2xl border px-4 py-4 shadow-lg animate-slide-in-right',
         typeStyles[type],
       )}
     >
-      <Icon className="mt-0.5 h-5 w-5" />
-      <span className="text-sm font-medium">{message}</span>
+      <div className="flex-shrink-0 mt-0.5">
+        <Icon className="h-5 w-5" />
+      </div>
+      <span className="flex-1 text-sm font-medium leading-relaxed">{message}</span>
       <button
         type="button"
         onClick={onClose}
-        className="ml-auto text-current/70 hover:text-current"
+        className="flex-shrink-0 ml-2 text-current/70 hover:text-current hover:scale-110 transition-all"
         aria-label="Close"
       >
         <X className="h-4 w-4" />
@@ -48,7 +52,7 @@ export function ToastHost() {
   if (!toasts.length) return null
 
   return (
-    <div className="fixed bottom-20 right-4 z-50 flex w-72 flex-col gap-3">
+    <div className="fixed top-20 right-4 z-[150] flex w-80 flex-col gap-3 safe-area-top sm:top-24">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

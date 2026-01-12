@@ -1,23 +1,26 @@
 import { forwardRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { SelectHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
 
 type Option = {
   label: string
   value: string
+  disabled?: boolean
 }
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label?: string
   error?: string
+  hint?: string
   options: Option[]
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, className, id, options, ...props }, ref) => {
+  ({ label, error, hint, className, id, options, ...props }, ref) => {
     const selectId = id ?? props.name
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {label ? (
           <label
             htmlFor={selectId}
@@ -26,29 +29,40 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {label}
           </label>
         ) : null}
-        <div className="relative">
+        <div className="relative group">
           <select
             ref={ref}
             id={selectId}
             className={cn(
-              'flex h-10 w-full appearance-none rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              error ? 'border-destructive focus-visible:ring-destructive' : '',
+              'flex h-11 w-full appearance-none rounded-xl border-2 border-input bg-background px-4 pr-10 text-sm text-foreground transition-all duration-200 placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-50 group-hover:border-primary/50',
+              error && 'border-destructive focus:border-destructive focus:ring-destructive/10',
               className,
             )}
             {...props}
           >
             {options.map((option) => (
-              <option key={option.value} value={option.value} className="bg-card text-foreground">
+              <option 
+                key={option.value} 
+                value={option.value} 
+                disabled={option.disabled}
+                className="bg-card text-foreground py-2"
+              >
                 {option.label}
               </option>
             ))}
           </select>
-          {/* Custom Chevron for better styling control across browsers */}
-          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground transition-colors group-hover:text-primary">
+            <ChevronDown className="h-4 w-4" />
           </div>
         </div>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {hint && !error && (
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        )}
+        {error && (
+          <p className="text-xs text-destructive animate-fade-in-up">
+            {error}
+          </p>
+        )}
       </div>
     )
   },

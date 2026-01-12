@@ -8,6 +8,26 @@ import { apiRequest } from '../../lib/api'
 import { warmCache } from '../../lib/queryClient'
 import { preloadCriticalRoutes } from '../../lib/prefetch'
 
+/**
+ * Check if token expires within the next N minutes.
+ * Returns true if token is still valid and doesn't need refresh.
+ */
+function isTokenValid(session: Session | null, bufferMinutes = 5): boolean {
+  if (!session?.expires_at) return false
+  const expiresAt = session.expires_at * 1000 // Convert to ms
+  const bufferMs = bufferMinutes * 60 * 1000
+  return Date.now() < expiresAt - bufferMs
+}
+
+/**
+ * Compare two sessions - returns true if they're functionally the same.
+ */
+function sessionsEqual(a: Session | null, b: Session | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.access_token === b.access_token && a.user?.id === b.user?.id
+}
+
 type SignInInput = {
   email: string
   password: string
@@ -205,6 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [userContextReady, setUserContextReady] = useState(false)
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [hasCacheWarmed, setHasCacheWarmed] = useState(false)
   const setAuth = useAuthStore((state) => state.setAuth)
   const setUserContext = useAuthStore((state) => state.setUserContext)
   const clearAuth = useAuthStore((state) => state.clearAuth)
@@ -225,8 +247,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setTimeout(() => reject(new Error('Auth context timeout')), 5000)
           ),
         ])
-      } catch (e) {
+       } catch (e) {
         console.error('Auth context load failed:', e)
+        // Show error toast on timeout
+        if (e instanceof Error && e.message === 'Auth context timeout') {
+          alert('Ladezeit überschritten. Bitte erneut versuchen.')
+        }
         // Set defaults so app doesn't hang
         setUserContext('owner', null, [])
       } finally {
@@ -236,8 +262,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const applySession = (nextSession: Session | null) => {
+    const applySession = (nextSession: Session | null, options: { force?: boolean; skipWarmup?: boolean } = {}) => {
       if (!active) return
+      
+      // Skip update if session hasn't changed (prevents double render)
+      if (!options.force && sessionsEqual(session, nextSession)) {
+        return
+      }
+      
       setSession(nextSession)
       if (nextSession) {
         setAuth(nextSession)
@@ -248,9 +280,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         )
         void persistTokens(nextSession)
         void loadContextWithTimeout(nextSession.user.id)
-        // Preload routes and warm cache without blocking the first paint
-        preloadCriticalRoutes()
-        void warmCache(nextSession.access_token)
+        
+        // Only warm cache once per app session
+        if (!hasCacheWarmed && !options.skipWarmup) {
+          setHasCacheWarmed(true)
+          preloadCriticalRoutes()
+          void warmCache(nextSession.access_token)
+        }
       } else {
         setUserContextReady(false)
         setLoading(false)
@@ -260,20 +296,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const bootstrapSession = async () => {
+      setIsBootstrapping(true)
       const storedSession = await readStoredSession()
       if (!active) return
 
       if (storedSession) {
-        applySession(storedSession)
-        // Validate/refresh in the background
-        const refreshed =
-          (await restoreSessionWithRetry()) ?? (await refreshSessionFromToken())
-        if (!active) return
-        if (refreshed) {
-          applySession(refreshed)
-        } else {
-          applySession(null)
+        // Apply stored session immediately for instant UI
+        applySession(storedSession, { force: true })
+        
+        // Only refresh if token is expiring soon
+        if (!isTokenValid(storedSession)) {
+          const refreshed =
+            (await restoreSessionWithRetry()) ?? (await refreshSessionFromToken())
+          if (!active) return
+          if (refreshed) {
+            // Only apply if different (sessionsEqual check inside)
+            applySession(refreshed, { skipWarmup: true })
+          } else {
+            applySession(null)
+          }
         }
+        
+        setIsBootstrapping(false)
         return
       }
 
@@ -287,34 +331,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nextSession = await refreshSessionFromToken()
       }
       if (!active) return
-      applySession(nextSession)
+      applySession(nextSession, { force: true })
+      setIsBootstrapping(false)
     }
 
     void bootstrapSession()
 
     const { data } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return
-      setSession(nextSession)
-      if (nextSession) {
-        setAuth(nextSession)
-        void authStorage.setItem(
-          supabaseStorageKey,
-          JSON.stringify(nextSession),
-        )
-        void persistTokens(nextSession)
-        void loadContextWithTimeout(nextSession.user.id)
-        // On sign in, preload routes and warm cache
-        if (event === 'SIGNED_IN') {
-          preloadCriticalRoutes()
-          void warmCache(nextSession.access_token)
-        }
-      } else {
-        if (event === 'SIGNED_OUT') {
-          void authStorage.removeItem(supabaseStorageKey)
-        }
+      
+      // Ignore events during bootstrap to prevent double updates
+      if (isBootstrapping && event !== 'SIGNED_OUT') {
+        return
+      }
+      
+      // For sign out, always clear
+      if (event === 'SIGNED_OUT') {
+        setSession(null)
         setUserContextReady(false)
+        void authStorage.removeItem(supabaseStorageKey)
         void clearTokens()
         clearAuth()
+        return
+      }
+      
+      // For other events, use smart apply
+      if (nextSession) {
+        applySession(nextSession)
       }
     })
 
