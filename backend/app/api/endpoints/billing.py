@@ -7,7 +7,7 @@ Currently returns Free plan for all users until Stripe is configured.
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.api.deps import get_current_user
+from app.api.deps import UserContext, get_current_user_context
 from app.core.supabase import get_supabase
 from app.schemas.billing import (
     PLANS,
@@ -29,9 +29,20 @@ from app.services.stripe_service import (
 router = APIRouter()
 
 
+def require_owner(current_user: UserContext) -> None:
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can access this feature",
+        )
+
+
 @router.get("/billing/subscription", response_model=SubscriptionOut)
-async def get_subscription(current_user=Depends(get_current_user)):
+async def get_subscription(
+    current_user: UserContext = Depends(get_current_user_context),
+):
     """Get current user's subscription status."""
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Try to get existing subscription
@@ -53,11 +64,13 @@ async def get_subscription(current_user=Depends(get_current_user)):
         )
 
     # No subscription exists - create free plan
-    supabase.table("subscriptions").insert({
-        "user_id": current_user.id,
-        "plan": "free",
-        "status": "active",
-    }).execute()
+    supabase.table("subscriptions").insert(
+        {
+            "user_id": current_user.id,
+            "plan": "free",
+            "status": "active",
+        }
+    ).execute()
 
     return SubscriptionOut(
         plan="free",
@@ -69,8 +82,9 @@ async def get_subscription(current_user=Depends(get_current_user)):
 
 
 @router.get("/billing/plans", response_model=list[PlanInfo])
-async def get_plans(current_user=Depends(get_current_user)):
+async def get_plans(current_user: UserContext = Depends(get_current_user_context)):
     """Get available plans with current plan marked."""
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Get current plan
@@ -86,7 +100,7 @@ async def get_plans(current_user=Depends(get_current_user)):
     plans = []
     for plan_id, plan in PLANS.items():
         plan_copy = plan.model_copy()
-        plan_copy.is_current = (plan_id == current_plan)
+        plan_copy.is_current = plan_id == current_plan
         plans.append(plan_copy)
 
     return plans
@@ -95,9 +109,10 @@ async def get_plans(current_user=Depends(get_current_user)):
 @router.post("/billing/checkout", response_model=CheckoutSessionOut)
 async def create_checkout(
     request: CreateCheckoutRequest,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """Create a Stripe Checkout session for upgrading to Pro."""
+    require_owner(current_user)
     if not is_stripe_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -139,9 +154,10 @@ async def create_checkout(
 @router.post("/billing/portal", response_model=CustomerPortalOut)
 async def create_portal_session(
     request: CustomerPortalRequest,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """Create a Stripe Customer Portal session for managing subscription."""
+    require_owner(current_user)
     if not is_stripe_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -215,38 +231,46 @@ async def stripe_webhook(request: Request):
         subscription_id = data.get("subscription")
 
         if customer_id:
-            supabase.table("subscriptions").update({
-                "stripe_customer_id": customer_id,
-                "stripe_subscription_id": subscription_id,
-                "plan": "pro",
-                "status": "active",
-            }).eq("stripe_customer_id", customer_id).execute()
+            supabase.table("subscriptions").update(
+                {
+                    "stripe_customer_id": customer_id,
+                    "stripe_subscription_id": subscription_id,
+                    "plan": "pro",
+                    "status": "active",
+                }
+            ).eq("stripe_customer_id", customer_id).execute()
 
     elif event_type == "customer.subscription.updated":
         subscription_id = data.get("id")
         status = data.get("status")
         cancel_at_period_end = data.get("cancel_at_period_end", False)
 
-        supabase.table("subscriptions").update({
-            "status": status,
-            "cancel_at_period_end": cancel_at_period_end,
-            "current_period_end": data.get("current_period_end"),
-        }).eq("stripe_subscription_id", subscription_id).execute()
+        supabase.table("subscriptions").update(
+            {
+                "status": status,
+                "cancel_at_period_end": cancel_at_period_end,
+                "current_period_end": data.get("current_period_end"),
+            }
+        ).eq("stripe_subscription_id", subscription_id).execute()
 
     elif event_type == "customer.subscription.deleted":
         subscription_id = data.get("id")
 
-        supabase.table("subscriptions").update({
-            "plan": "free",
-            "status": "canceled",
-            "stripe_subscription_id": None,
-        }).eq("stripe_subscription_id", subscription_id).execute()
+        supabase.table("subscriptions").update(
+            {
+                "plan": "free",
+                "status": "canceled",
+                "stripe_subscription_id": None,
+            }
+        ).eq("stripe_subscription_id", subscription_id).execute()
 
     elif event_type == "invoice.payment_failed":
         subscription_id = data.get("subscription")
 
-        supabase.table("subscriptions").update({
-            "status": "past_due",
-        }).eq("stripe_subscription_id", subscription_id).execute()
+        supabase.table("subscriptions").update(
+            {
+                "status": "past_due",
+            }
+        ).eq("stripe_subscription_id", subscription_id).execute()
 
     return {"status": "success"}

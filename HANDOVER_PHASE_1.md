@@ -20,30 +20,30 @@
 
 ### Supabase
 ```
-URL: https://pzgpvwzmlssmepvqtgnq.supabase.co
-Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6Z3B2d3ptbHNzbWVwdnF0Z25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMDY0MzIsImV4cCI6MjA4Mjg4MjQzMn0.Ue9gEhbjCWt1hZO9hxKmMAvn4_q8Og_wUf3Tfuf7PSc
-Service Role Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6Z3B2d3ptbHNzbWVwdnF0Z25xIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzMwNjQzMiwiZXhwIjoyMDgyODgyNDMyfQ.27ocqOKDgSjqRarSggcCrPOtomGRShKF3lZxWxmw31c
-Database Password: CrewInv2026!Secure
+URL: YOUR_SUPABASE_URL
+Anon Key: <REDACTED>
+Service Role Key: <REDACTED>
+Database Password: <REDACTED>
 Region: eu-central-1 (Frankfurt)
-Dashboard: https://supabase.com/dashboard/project/pzgpvwzmlssmepvqtgnq
+Dashboard: https://supabase.com/dashboard/project/YOUR_PROJECT_REF
 ```
 
 ### Railway
 ```
-Backend URL: https://crewinventur-ki-backend-production.up.railway.app
-Project ID: f355ab60-ecba-457c-acdc-93147c8d3a67
-Service ID: 31373cf8-ca09-4267-b2e6-28ac7d860aac
-API Token: 82a19704-6e09-4514-bc7a-079c8c89c712
-Dashboard: https://railway.com/project/f355ab60-ecba-457c-acdc-93147c8d3a67
+Backend URL: YOUR_BACKEND_URL
+Project ID: YOUR_RAILWAY_PROJECT_ID
+Service ID: YOUR_RAILWAY_SERVICE_ID
+API Token: <REDACTED>
+Dashboard: https://railway.com/project/YOUR_RAILWAY_PROJECT_ID
 ```
 
 ### Cloudflare Pages
 ```
-Frontend URL: https://crewinventurki.pages.dev
-Project Name: crewinventur-ki
-Account ID: 06633edf3843240956d67e95a1d03aba
-API Key: 4cacfee9cd7e1317b721e27ebed1355fcdc94
-Email: firmengruppe.viola@gmail.com
+Frontend URL: YOUR_FRONTEND_URL
+Project Name: YOUR_CLOUDFLARE_PROJECT_NAME
+Account ID: <REDACTED>
+API Key: <REDACTED>
+Email: YOUR_CLOUDFLARE_EMAIL
 ```
 
 ### GitHub

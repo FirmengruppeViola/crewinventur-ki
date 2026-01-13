@@ -9,6 +9,7 @@ Uses HIGH thinking for batch matching, MEDIUM for single invoice.
 """
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -30,25 +31,35 @@ class ProductMatch(BaseModel):
     reason: str = Field(description="Brief explanation for the match")
 
 
-def _build_matching_prompt(products: list[dict], items: list[dict]) -> str:
+def _coerce_dict_list(data: Any) -> list[dict[str, Any]]:
+    """Coerce Supabase JSON responses into a list of dicts."""
+
+    if not isinstance(data, list):
+        return []
+    return [row for row in data if isinstance(row, dict)]
+
+
+def _build_matching_prompt(products: Sequence[object], items: Sequence[object]) -> str:
     """Build prompt for AI-powered product matching."""
 
     # Format products for the prompt
     products_text = "\n".join(
         [
-            f'  - ID: {p["id"]}, Name: "{p.get("name", "")}", '
+            f'  - ID: {p.get("id", "")}, Name: "{p.get("name", "")}", '
             f'Brand: "{p.get("brand", "")}", Size: "{p.get("size", "")}"'
             for p in products
+            if isinstance(p, dict)
         ]
     )
 
     # Format items for the prompt
     items_text = "\n".join(
         [
-            f"  - ID: {item['id']}, "
+            f"  - ID: {item.get('id', '')}, "
             f'Raw: "{item.get("raw_text", "")}", '
             f'Normalized: "{item.get("ai_normalized_name") or item.get("product_name", "")}"'
             for item in items
+            if isinstance(item, dict)
         ]
     )
 
@@ -90,7 +101,7 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
         .eq("user_id", user_id)
         .execute()
     )
-    products = products_resp.data or []
+    products: list[dict[str, Any]] = _coerce_dict_list(products_resp.data)
 
     if not products:
         logger.info(f"No products found for user {user_id}")
@@ -109,7 +120,7 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
         .limit(1000)
         .execute()
     )
-    products = products_resp.data or []
+    products: list[dict[str, Any]] = _coerce_dict_list(products_resp.data)
 
     # Get all unmatched invoice items for user
     items_resp = (
@@ -119,7 +130,7 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
         .is_("matched_product_id", "null")
         .execute()
     )
-    items = items_resp.data or []
+    items: list[dict[str, Any]] = _coerce_dict_list(items_resp.data)
 
     if not items:
         logger.info(f"No unmatched items found for user {user_id}")
@@ -177,38 +188,44 @@ def match_products_for_user(user_id: str) -> dict[str, Any]:
                 ).eq("id", item_id).execute()
 
                 # Get invoice info for price update
-                item_data = next((i for i in items if i["id"] == item_id), None)
+                item_data = next((i for i in items if i.get("id") == item_id), None)
                 if item_data:
-                    invoice_resp = (
-                        supabase.table("invoices")
-                        .select("supplier_name, invoice_date")
-                        .eq("id", item_data["invoice_id"])
-                        .execute()
-                    )
-                    invoice = invoice_resp.data[0] if invoice_resp.data else {}
+                    invoice_id = item_data.get("invoice_id")
+                    if invoice_id:
+                        invoice_resp = (
+                            supabase.table("invoices")
+                            .select("supplier_name, invoice_date")
+                            .eq("id", invoice_id)
+                            .execute()
+                        )
+                        invoice_rows: list[dict[str, Any]] = _coerce_dict_list(
+                            invoice_resp.data
+                        )
+                        invoice = invoice_rows[0] if invoice_rows else {}
 
-                    # Get item price
-                    item_price_resp = (
-                        supabase.table("invoice_items")
-                        .select("unit_price")
-                        .eq("id", item_id)
-                        .execute()
-                    )
-                    unit_price = (
-                        item_price_resp.data[0].get("unit_price")
-                        if item_price_resp.data
-                        else None
-                    )
+                        # Get item price
+                        item_price_resp = (
+                            supabase.table("invoice_items")
+                            .select("unit_price")
+                            .eq("id", item_id)
+                            .execute()
+                        )
+                        item_price_rows = _coerce_dict_list(item_price_resp.data)
+                        unit_price = (
+                            item_price_rows[0].get("unit_price")
+                            if item_price_rows
+                            else None
+                        )
 
-                    # Update product with price
-                    if unit_price:
-                        supabase.table("products").update(
-                            {
-                                "last_price": unit_price,
-                                "last_supplier": invoice.get("supplier_name"),
-                                "last_price_date": invoice.get("invoice_date"),
-                            }
-                        ).eq("id", product_id).execute()
+                        # Update product with price
+                        if unit_price is not None:
+                            supabase.table("products").update(
+                                {
+                                    "last_price": unit_price,
+                                    "last_supplier": invoice.get("supplier_name"),
+                                    "last_price_date": invoice.get("invoice_date"),
+                                }
+                            ).eq("id", product_id).execute()
 
                 matched_count += 1
                 applied_matches.append(
@@ -244,16 +261,21 @@ def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
     """
     supabase = get_supabase()
 
-    # Verify invoice belongs to user
-    invoice_check = (
+    # Verify invoice belongs to user + fetch metadata once
+    invoice_resp = (
         supabase.table("invoices")
-        .select("id")
+        .select("id, supplier_name, invoice_date")
         .eq("id", invoice_id)
         .eq("user_id", user_id)
         .execute()
     )
-    if not invoice_check.data:
+    invoice_rows: list[dict[str, Any]] = _coerce_dict_list(invoice_resp.data)
+    if not invoice_rows:
         return {"error": "Invoice not found", "matched_count": 0}
+
+    invoice: dict[str, Any] = invoice_rows[0]
+    supplier_name = invoice.get("supplier_name")
+    invoice_date = invoice.get("invoice_date")
 
     # Get all products for user (limit to 1000 for performance)
     products_resp = (
@@ -263,24 +285,29 @@ def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
         .limit(1000)
         .execute()
     )
-    products = products_resp.data or []
+    products: list[dict[str, Any]] = _coerce_dict_list(products_resp.data)
 
     if not products:
         return {"matched_count": 0, "message": "Keine Produkte vorhanden"}
 
-    # Get unmatched items for this invoice
+    # Get unmatched items for this invoice (include unit_price for product updates)
     items_resp = (
         supabase.table("invoice_items")
-        .select("id, raw_text, product_name, ai_normalized_name, invoice_id")
+        .select(
+            "id, raw_text, product_name, ai_normalized_name, invoice_id, unit_price"
+        )
         .eq("invoice_id", invoice_id)
+        .eq("user_id", user_id)
         .is_("matched_product_id", "null")
         .limit(1000)
         .execute()
     )
-    items = items_resp.data or []
+    items: list[dict[str, Any]] = _coerce_dict_list(items_resp.data)
 
     if not items:
         return {"matched_count": 0, "message": "Keine offenen Items"}
+
+    items_by_id = {item.get("id"): item for item in items if item.get("id")}
 
     logger.info(f"Matching {len(items)} items for invoice {invoice_id}")
 
@@ -305,6 +332,7 @@ def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
 
         if item_id and product_id and confidence >= 0.7:
             try:
+                # Update invoice item with match
                 supabase.table("invoice_items").update(
                     {
                         "matched_product_id": product_id,
@@ -312,6 +340,31 @@ def match_products_for_invoice(user_id: str, invoice_id: str) -> dict[str, Any]:
                         "is_manually_matched": False,
                     }
                 ).eq("id", item_id).execute()
+
+                # Update matched product with last price + supplier/date
+                item = items_by_id.get(item_id) or {}
+                unit_price = item.get("unit_price")
+
+                from numbers import Number
+
+                unit_price_value = None
+                if isinstance(unit_price, Number):
+                    unit_price_value = float(unit_price)
+                elif isinstance(unit_price, str):
+                    try:
+                        unit_price_value = float(unit_price)
+                    except ValueError:
+                        pass
+
+                if unit_price_value is not None and unit_price_value > 0:
+                    supabase.table("products").update(
+                        {
+                            "last_price": unit_price_value,
+                            "last_supplier": supplier_name,
+                            "last_price_date": invoice_date,
+                        }
+                    ).eq("id", product_id).eq("user_id", user_id).execute()
+
                 matched_count += 1
             except Exception as e:
                 logger.error(f"Failed to apply match: {e}")

@@ -1,7 +1,22 @@
 import base64
+import logging
+import mimetypes
 from datetime import datetime, timezone
-from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, status
-from app.api.deps import get_current_user
+from typing import Any
+
+import anyio
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    HTTPException,
+    UploadFile,
+    status,
+)
+
+from app.api.deps import UserContext, get_current_user_context
 from app.core.supabase import get_supabase
 from app.schemas.invoice import InvoiceItemOut, InvoiceOut
 from app.services.invoice_extraction import extract_invoice
@@ -13,6 +28,108 @@ from app.services.product_matcher import (
 from app.utils.query_helpers import escape_like_pattern
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _guess_mime_type(file_name: str) -> str:
+    mime_type, _ = mimetypes.guess_type(file_name)
+    if mime_type:
+        return mime_type
+    if file_name.lower().endswith(".pdf"):
+        return "application/pdf"
+    return "application/octet-stream"
+
+
+def _process_invoice_background(invoice_id: str, user_id: str) -> None:
+    # Runs in Starlette's threadpool (BackgroundTasks sync function).
+    supabase = None
+
+    try:
+        supabase = get_supabase()
+        storage = get_storage_service()
+
+        # Idempotent lock: only one processing job per invoice.
+        lock_resp = (
+            supabase.table("invoices")
+            .update(
+                {
+                    "status": "processing",
+                    "processing_error": None,
+                    "processed_at": None,
+                }
+            )
+            .eq("id", invoice_id)
+            .eq("user_id", user_id)
+            .in_("status", ["pending", "error"])
+            .neq("status", "processing")
+            .execute()
+        )
+
+        if not lock_resp.data:
+            # Already processing (or not found) -> no-op.
+            return
+
+        invoice_resp = (
+            supabase.table("invoices")
+            .select("*")
+            .eq("id", invoice_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        invoice_data = invoice_resp.data[0] if invoice_resp.data else None
+        if not isinstance(invoice_data, dict):
+            raise ValueError(f"Invoice {invoice_id} not found for user {user_id}")
+
+        invoice: dict[str, Any] = invoice_data
+
+        storage_key = invoice.get("file_url")
+        if not isinstance(storage_key, str) or not storage_key:
+            raise ValueError(f"Invalid invoice file_url for invoice {invoice_id}")
+
+        file_bytes = anyio.run(storage.download, storage_key)
+        file_name = invoice.get("file_name")
+        mime_type = _guess_mime_type(file_name if isinstance(file_name, str) else "")
+        _process_invoice(supabase, invoice, file_bytes=file_bytes, mime_type=mime_type)
+    except Exception as exc:
+        logger.exception(
+            "Invoice processing failed in background (invoice_id=%s user_id=%s): %s",
+            invoice_id,
+            user_id,
+            exc,
+        )
+
+        # Persist ANY background failure (including pre-download issues).
+        if supabase is not None:
+            try:
+                (
+                    supabase.table("invoices")
+                    .update(
+                        {
+                            "status": "error",
+                            "processing_error": str(exc),
+                        }
+                    )
+                    .eq("id", invoice_id)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to persist invoice processing error (invoice_id=%s user_id=%s)",
+                    invoice_id,
+                    user_id,
+                )
+
+        return
+
+
+def require_owner(current_user: UserContext) -> None:
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can access this feature",
+        )
 
 
 def _now_iso():
@@ -36,7 +153,7 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
             first_word = normalized_name.split()[0] if normalized_name.split() else ""
             matched = (
                 supabase.table("products")
-                .select("id")
+                .select("id, brand")
                 .eq("user_id", user_id)
                 .ilike("name", escape_like_pattern(first_word))
                 .limit(5)
@@ -99,7 +216,13 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
         supabase.table("invoice_items").insert(items).execute()
 
     for product_id, update_data in product_updates.items():
-        supabase.table("products").update(update_data).eq("id", product_id).execute()
+        (
+            supabase.table("products")
+            .update(update_data)
+            .eq("id", product_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
 
 
 def _process_invoice(supabase, invoice, file_bytes: bytes, mime_type: str):
@@ -113,30 +236,43 @@ def _process_invoice(supabase, invoice, file_bytes: bytes, mime_type: str):
         extraction = extract_invoice(file_base64, mime_type=mime_type)
         _process_invoice_items(supabase, invoice["id"], user_id, extraction)
 
-        supabase.table("invoices").update(
-            {
-                "supplier_name": extraction.supplier_name,
-                "invoice_number": extraction.invoice_number,
-                "invoice_date": extraction.invoice_date,
-                "status": "processed",
-                "processed_at": _now_iso(),
-                "total_amount": extraction.totals.gross,
-                "item_count": len(extraction.items),
-                "processing_error": None,
-            }
-        ).eq("id", invoice["id"]).execute()
+        (
+            supabase.table("invoices")
+            .update(
+                {
+                    "supplier_name": extraction.supplier_name,
+                    "invoice_number": extraction.invoice_number,
+                    "invoice_date": extraction.invoice_date,
+                    "status": "processed",
+                    "processed_at": _now_iso(),
+                    "total_amount": extraction.totals.gross,
+                    "item_count": len(extraction.items),
+                    "processing_error": None,
+                }
+            )
+            .eq("id", invoice["id"])
+            .eq("user_id", user_id)
+            .execute()
+        )
     except Exception as exc:
-        supabase.table("invoices").update(
-            {
-                "status": "error",
-                "processing_error": str(exc),
-            }
-        ).eq("id", invoice["id"]).execute()
+        (
+            supabase.table("invoices")
+            .update(
+                {
+                    "status": "error",
+                    "processing_error": str(exc),
+                }
+            )
+            .eq("id", invoice["id"])
+            .eq("user_id", user_id)
+            .execute()
+        )
         raise
 
 
 @router.get("/invoices", response_model=list[InvoiceOut])
-def list_invoices(current_user=Depends(get_current_user)):
+def list_invoices(current_user: UserContext = Depends(get_current_user_context)):
+    require_owner(current_user)
     supabase = get_supabase()
     response = (
         supabase.table("invoices")
@@ -151,23 +287,31 @@ def list_invoices(current_user=Depends(get_current_user)):
 @router.post(
     "/invoices/upload", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED
 )
-async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user)):
+async def upload_invoice(
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    require_owner(current_user)
     supabase = get_supabase()
     storage = get_storage_service()
 
     file_bytes = await file.read()
 
+    safe_filename = file.filename or "invoice.pdf"
+    upload_mime_type = file.content_type or _guess_mime_type(safe_filename)
+
     # Generate storage key with user isolation
     storage_key = storage.generate_key(
         user_id=current_user.id,
         category="invoices",
-        filename=file.filename,
+        filename=safe_filename,
         include_date=True,
     )
 
     # Upload to R2/local storage
     try:
-        file_url = await storage.upload(file_bytes, storage_key, file.content_type)
+        await storage.upload(file_bytes, storage_key, upload_mime_type)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -180,15 +324,18 @@ async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user
             {
                 "user_id": current_user.id,
                 "file_url": storage_key,  # Store key, not URL
-                "file_name": file.filename,
+                "file_name": safe_filename,
                 "file_size": len(file_bytes),
                 "status": "pending",
+                "processing_error": None,
+                "processed_at": None,
             }
         )
         .execute()
     )
-    invoice = invoice_resp.data[0] if invoice_resp.data else None
-    if invoice is None:
+
+    invoice_data = invoice_resp.data[0] if invoice_resp.data else None
+    if not isinstance(invoice_data, dict):
         # Cleanup uploaded file on DB error
         await storage.delete(storage_key)
         raise HTTPException(
@@ -196,19 +343,31 @@ async def upload_invoice(file: UploadFile, current_user=Depends(get_current_user
             detail="Invoice creation failed",
         )
 
-    _process_invoice(
-        supabase,
-        invoice,
-        file_bytes=file_bytes,
-        mime_type=file.content_type or "application/pdf",
-    )
+    invoice_id = invoice_data.get("id")
+    if not isinstance(invoice_id, str) or not invoice_id:
+        await storage.delete(storage_key)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invoice creation failed",
+        )
 
-    refreshed = supabase.table("invoices").select("*").eq("id", invoice["id"]).execute()
-    return refreshed.data[0] if refreshed.data else invoice
+    background_tasks.add_task(_process_invoice_background, invoice_id, current_user.id)
+
+    refreshed = (
+        supabase.table("invoices")
+        .select("*")
+        .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    return refreshed.data[0] if refreshed.data else invoice_data
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceOut)
-def get_invoice(invoice_id: str, current_user=Depends(get_current_user)):
+def get_invoice(
+    invoice_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
     response = (
         supabase.table("invoices")
@@ -227,9 +386,13 @@ def get_invoice(invoice_id: str, current_user=Depends(get_current_user)):
 
 
 @router.post("/invoices/{invoice_id}/process", response_model=InvoiceOut)
-async def process_invoice(invoice_id: str, current_user=Depends(get_current_user)):
+async def process_invoice(
+    invoice_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    require_owner(current_user)
     supabase = get_supabase()
-    storage = get_storage_service()
 
     invoice_resp = (
         supabase.table("invoices")
@@ -238,32 +401,33 @@ async def process_invoice(invoice_id: str, current_user=Depends(get_current_user
         .eq("user_id", current_user.id)
         .execute()
     )
-    invoice = invoice_resp.data[0] if invoice_resp.data else None
-    if invoice is None:
+    invoice_data = invoice_resp.data[0] if invoice_resp.data else None
+    if not isinstance(invoice_data, dict):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found",
         )
 
-    storage_key = invoice["file_url"]
-    try:
-        file_bytes = await storage.download(storage_key)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to download file: {str(e)}",
-        )
+    if invoice_data.get("status") in ("processing", "processed"):
+        return invoice_data
 
-    _process_invoice(
-        supabase, invoice, file_bytes=file_bytes, mime_type="application/pdf"
+    background_tasks.add_task(_process_invoice_background, invoice_id, current_user.id)
+
+    refreshed = (
+        supabase.table("invoices")
+        .select("*")
+        .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
     )
-
-    refreshed = supabase.table("invoices").select("*").eq("id", invoice_id).execute()
-    return refreshed.data[0] if refreshed.data else invoice
+    return refreshed.data[0] if refreshed.data else invoice_data
 
 
 @router.get("/invoices/{invoice_id}/items", response_model=list[InvoiceItemOut])
-def list_invoice_items(invoice_id: str, current_user=Depends(get_current_user)):
+def list_invoice_items(
+    invoice_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
     invoice = (
         supabase.table("invoices")
@@ -292,8 +456,9 @@ def match_invoice_item(
     invoice_id: str,
     item_id: str,
     product_id: str = Body(..., embed=True),
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Step 1: Verify invoice item belongs to user
@@ -367,7 +532,7 @@ def match_invoice_item(
 @router.post("/invoices/{invoice_id}/auto-create-products")
 def auto_create_products_from_invoice(
     invoice_id: str,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Create products from all unmatched invoice items.
@@ -380,6 +545,7 @@ def auto_create_products_from_invoice(
 
     Returns list of created products.
     """
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Verify invoice belongs to user
@@ -469,9 +635,10 @@ def auto_create_products_from_invoice(
 @router.get("/invoices/{invoice_id}/unmatched-count")
 def get_unmatched_count(
     invoice_id: str,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """Get count of unmatched items in an invoice."""
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Verify invoice belongs to user
@@ -500,7 +667,9 @@ def get_unmatched_count(
 
 
 @router.post("/invoices/smart-match-all")
-def smart_match_all_invoices(current_user=Depends(get_current_user)):
+def smart_match_all_invoices(
+    current_user: UserContext = Depends(get_current_user_context),
+):
     """
     Use AI to match ALL unmatched invoice items to products.
 
@@ -512,6 +681,7 @@ def smart_match_all_invoices(current_user=Depends(get_current_user)):
 
     Use this after uploading multiple invoices to bulk-match.
     """
+    require_owner(current_user)
     result = match_products_for_user(current_user.id)
 
     if "error" in result:
@@ -526,13 +696,14 @@ def smart_match_all_invoices(current_user=Depends(get_current_user)):
 @router.post("/invoices/{invoice_id}/smart-match")
 def smart_match_invoice(
     invoice_id: str,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Use AI to match unmatched items for a specific invoice.
 
     More efficient than match-all when working with single invoices.
     """
+    require_owner(current_user)
     result = match_products_for_invoice(current_user.id, invoice_id)
 
     if "error" in result and result["error"] == "Invoice not found":

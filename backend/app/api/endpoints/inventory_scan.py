@@ -8,10 +8,11 @@ Provides endpoints for:
 
 import base64
 import logging
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 
-from app.api.deps import get_current_user
+from app.api.deps import UserContext, get_current_user_context
 from app.core.gemini import GeminiError
 from app.core.supabase import get_supabase
 from app.services.product_recognition import (
@@ -22,6 +23,55 @@ from app.schemas.inventory import ScanResult, ShelfScanResult
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _verify_scan_session_access(
+    supabase, session_id: str, current_user: UserContext
+) -> dict[str, Any]:
+    response = (
+        supabase.table("inventory_sessions")
+        .select("id, status, user_id, location_id")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+    )
+
+    session: dict[str, Any] | None = None
+    if response.data and isinstance(response.data, list) and response.data:
+        if isinstance(response.data[0], dict):
+            session = cast(dict[str, Any], response.data[0])
+
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    if current_user.is_owner:
+        if session["user_id"] != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+    else:
+        if session["user_id"] != current_user.effective_owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+        if session["location_id"] not in current_user.allowed_location_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+
+    if session["status"] != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is not active",
+        )
+
+    return session
 
 
 def _strip_data_prefix(value: str) -> str:
@@ -77,7 +127,9 @@ def _check_duplicate_in_session(
     return existing.data[0] if existing.data else None
 
 
-def _create_product_from_recognition(supabase, user_id: str, recognition) -> dict:
+def _create_product_from_recognition(
+    supabase, user_id: str, recognition
+) -> dict[str, Any] | None:
     """Auto-create a new product from AI recognition."""
     insert_resp = (
         supabase.table("products")
@@ -96,7 +148,12 @@ def _create_product_from_recognition(supabase, user_id: str, recognition) -> dic
         )
         .execute()
     )
-    return insert_resp.data[0] if insert_resp.data else None
+
+    if insert_resp.data and isinstance(insert_resp.data, list) and insert_resp.data:
+        if isinstance(insert_resp.data[0], dict):
+            return cast(dict[str, Any], insert_resp.data[0])
+
+    return None
 
 
 @router.post("/inventory/sessions/{session_id}/scan", response_model=ScanResult)
@@ -104,7 +161,7 @@ async def scan_for_inventory(
     session_id: str,
     request: Request,
     image: UploadFile | None = None,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Scan a product image and prepare it for adding to inventory session.
@@ -121,24 +178,7 @@ async def scan_for_inventory(
     """
     supabase = get_supabase()
 
-    # Verify session exists and belongs to user
-    session = (
-        supabase.table("inventory_sessions")
-        .select("id, status")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if not session.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-    if session.data[0]["status"] != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Session is not active",
-        )
+    _verify_scan_session_access(supabase, session_id, current_user)
 
     # Get image from request
     image_base64: str | None = None
@@ -168,7 +208,12 @@ async def scan_for_inventory(
     categories_resp = (
         supabase.table("categories").select("name").eq("is_system", True).execute()
     )
-    categories = [row["name"] for row in categories_resp.data or []]
+    categories_data = categories_resp.data or []
+    categories = [
+        cast(str, row["name"])
+        for row in categories_data
+        if isinstance(row, dict) and isinstance(row.get("name"), str)
+    ]
 
     # Call Gemini for product recognition
     try:
@@ -180,14 +225,16 @@ async def scan_for_inventory(
             detail=f"KI-Service nicht erreichbar. Bitte erneut versuchen.",
         ) from e
 
+    tenant_user_id = current_user.effective_owner_id
+
     # Check if product exists in user's database
-    existing_product = _find_existing_product(supabase, current_user.id, recognition)
+    existing_product = _find_existing_product(supabase, tenant_user_id, recognition)
     is_new = existing_product is None
 
     # Auto-create if requested and product is new
     if is_new and auto_create:
         existing_product = _create_product_from_recognition(
-            supabase, current_user.id, recognition
+            supabase, tenant_user_id, recognition
         )
         if existing_product:
             is_new = False  # Now it exists
@@ -220,7 +267,7 @@ async def scan_shelf_for_inventory(
     session_id: str,
     request: Request,
     image: UploadFile | None = None,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Scan a shelf/rack image and recognize multiple products.
@@ -238,24 +285,9 @@ async def scan_shelf_for_inventory(
     """
     supabase = get_supabase()
 
-    # Verify session
-    session = (
-        supabase.table("inventory_sessions")
-        .select("id, status")
-        .eq("id", session_id)
-        .eq("user_id", current_user.id)
-        .execute()
-    )
-    if not session.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-    if session.data[0]["status"] != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Session is not active",
-        )
+    _verify_scan_session_access(supabase, session_id, current_user)
+
+    tenant_user_id = current_user.effective_owner_id
 
     # Get image
     image_base64: str | None = None
@@ -285,7 +317,12 @@ async def scan_shelf_for_inventory(
     categories_resp = (
         supabase.table("categories").select("name").eq("is_system", True).execute()
     )
-    categories = [row["name"] for row in categories_resp.data or []]
+    categories_data = categories_resp.data or []
+    categories = [
+        cast(str, row["name"])
+        for row in categories_data
+        if isinstance(row, dict) and isinstance(row.get("name"), str)
+    ]
 
     # Call Gemini for multi-product recognition
     try:
@@ -302,14 +339,12 @@ async def scan_shelf_for_inventory(
     # Process each recognized product
     results: list[ScanResult] = []
     for recognition in products:
-        existing_product = _find_existing_product(
-            supabase, current_user.id, recognition
-        )
+        existing_product = _find_existing_product(supabase, tenant_user_id, recognition)
         is_new = existing_product is None
 
         if is_new and auto_create:
             existing_product = _create_product_from_recognition(
-                supabase, current_user.id, recognition
+                supabase, tenant_user_id, recognition
             )
             if existing_product:
                 is_new = False

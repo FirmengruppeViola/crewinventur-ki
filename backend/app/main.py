@@ -6,19 +6,13 @@ from app.core.config import settings
 app = FastAPI(
     title="CrewInventurKI API",
     description="KI-gestützte Inventur-App für die Gastronomie",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://crewinventurki.pages.dev",
-        "capacitor://localhost",
-        "https://localhost",
-        "http://localhost",
-    ],
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -36,4 +30,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

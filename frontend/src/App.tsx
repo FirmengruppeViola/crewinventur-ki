@@ -4,7 +4,7 @@ import { ProtectedRoute } from './features/auth/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { ToastHost } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
-import { publicRoutes, protectedRoutes, fallbackRoute } from './routes'
+import { publicRoutes, protectedRoutes, ownerOnlyRoutes, fallbackRoute } from './routes'
 
 function App() {
   return (
@@ -24,6 +24,13 @@ function App() {
               {protectedRoutes.map((route) => (
                 <Route key={route.path} path={route.path} element={route.element} />
               ))}
+
+              {/* Owner-only routes */}
+              <Route element={<ProtectedRoute ownerOnly />}>
+                {ownerOnlyRoutes.map((route) => (
+                  <Route key={route.path} path={route.path} element={route.element} />
+                ))}
+              </Route>
             </Route>
           </Route>
 

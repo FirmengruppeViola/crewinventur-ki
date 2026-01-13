@@ -1,6 +1,10 @@
+import logging
 from datetime import datetime, timezone
+from typing import Any, cast
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.api.deps import get_current_user, get_current_user_context, UserContext
+
+from app.api.deps import get_current_user_context, UserContext
 from app.core.supabase import get_supabase
 from app.schemas.inventory import (
     InventoryItemCreate,
@@ -10,6 +14,8 @@ from app.schemas.inventory import (
     InventorySessionOut,
     InventorySessionUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -230,7 +236,28 @@ def complete_session(
     # Verify access and get session
     session = _verify_session_access(supabase, session_id, current_user)
 
-    # Try to use the atomic RPC function if available
+    def _fetch_session_row() -> dict[str, Any]:
+        resp = (
+            supabase.table("inventory_sessions")
+            .select("*")
+            .eq("id", session_id)
+            .execute()
+        )
+        row: Any = resp.data[0] if resp.data else None
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+        if not isinstance(row, dict):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Invalid session row returned from database",
+            )
+        return cast(dict[str, Any], row)
+
+    # Try to use the atomic RPC function if available.
+    # IMPORTANT: Never return the RPC JSON payload (it is not InventorySessionOut).
     try:
         result = supabase.rpc(
             "complete_inventory_session_atomic",
@@ -243,11 +270,26 @@ def complete_session(
             },
         ).execute()
 
-        if result.data and result.data.get("success"):
-            return result.data
+        rpc_data = result.data
+        rpc_success = False
+        if isinstance(rpc_data, dict):
+            rpc_success = rpc_data.get("success") is True
+        elif (
+            isinstance(rpc_data, list)
+            and rpc_data
+            and isinstance(rpc_data[0], dict)
+            and rpc_data[0].get("success") is True
+        ):
+            rpc_success = True
+
+        if rpc_success:
+            _recalculate_totals(supabase, session_id)
+            return _fetch_session_row()
     except Exception as e:
-        # RPC function may not be deployed yet, fall back to original logic
-        logger.warning(f"RPC function not available, using fallback logic: {e}")
+        # RPC function may not be deployed yet (or may use different status semantics).
+        logger.warning(
+            f"RPC function not available or failed, using fallback logic: {e}"
+        )
 
     # Fallback to original logic with improved safety
     previous_id = session.get("previous_session_id")
@@ -259,50 +301,118 @@ def complete_session(
             .eq("location_id", session["location_id"])
             .eq("status", "completed")
             .order("completed_at", desc=True)
-            .limit(1)
+            .limit(5)
             .execute()
         )
-        previous_id = previous.data[0]["id"] if previous.data else None
+        for prev in previous.data or []:
+            if not isinstance(prev, dict):
+                continue
+            prev_id = prev.get("id")
+            if prev_id and prev_id != session_id:
+                previous_id = str(prev_id)
+                break
 
-    current_items = (
+    current_items_raw = (
         supabase.table("inventory_items")
         .select("*")
         .eq("session_id", session_id)
         .execute()
     ).data or []
+    current_items: list[dict[str, Any]] = [
+        cast(dict[str, Any], item)
+        for item in current_items_raw
+        if isinstance(item, dict)
+    ]
 
-    previous_items = {}
+    product_ids_set: set[str] = set()
+    for item in current_items:
+        if not isinstance(item, dict):
+            continue
+        product_id = item.get("product_id")
+        if product_id:
+            product_ids_set.add(str(product_id))
+
+    product_ids = list(product_ids_set)
+    product_name_by_id: dict[str, str] = {}
+    if product_ids:
+        products_resp = (
+            supabase.table("products")
+            .select("id, name")
+            .eq("user_id", current_user.effective_owner_id)
+            .in_("id", product_ids)
+            .execute()
+        )
+        for product in products_resp.data or []:
+            if not isinstance(product, dict):
+                continue
+            pid = product.get("id")
+            name = product.get("name")
+            if pid and name:
+                product_name_by_id[str(pid)] = str(name)
+
+    def _qty(item_row: dict[str, Any]) -> float:
+        quantity = item_row.get("quantity")
+        if quantity is None:
+            full = item_row.get("full_quantity") or 0
+            partial = item_row.get("partial_quantity") or 0
+            try:
+                return float(full) + float(partial)
+            except (TypeError, ValueError):
+                return 0.0
+        try:
+            return float(quantity)
+        except (TypeError, ValueError):
+            return 0.0
+
+    previous_items: dict[str, float] = {}
     if previous_id:
-        prev_data = (
+        prev_items_raw = (
             supabase.table("inventory_items")
-            .select("product_id, quantity")
+            .select("product_id, quantity, full_quantity, partial_quantity")
             .eq("session_id", previous_id)
             .execute()
         ).data or []
-        previous_items = {item["product_id"]: item["quantity"] for item in prev_data}
+        for prev_item in prev_items_raw:
+            if not isinstance(prev_item, dict):
+                continue
+            prev_product_id = prev_item.get("product_id")
+            if not prev_product_id:
+                continue
+            previous_items[str(prev_product_id)] = _qty(cast(dict[str, Any], prev_item))
 
-    differences = []
+    differences: list[dict[str, Any]] = []
     for item in current_items:
-        prev_qty = previous_items.get(item["product_id"])
+        product_id_raw = item.get("product_id")
+        item_id_raw = item.get("id")
+        if not product_id_raw or not item_id_raw:
+            continue
+
+        product_id = str(product_id_raw)
+        item_id = str(item_id_raw)
+
+        prev_qty = previous_items.get(product_id)
         difference = None
+        current_qty = _qty(item)
+
         if prev_qty is not None:
-            difference = float(item["quantity"]) - float(prev_qty)
+            difference = current_qty - float(prev_qty)
             if difference != 0:
                 differences.append(
                     {
-                        "product_id": item["product_id"],
-                        "product_name": item.get("product_name", "Unknown"),
+                        "product_id": product_id,
+                        "product_name": product_name_by_id.get(product_id, "Unknown"),
                         "quantity_diff": difference,
                         "previous_quantity": prev_qty,
-                        "current_quantity": item["quantity"],
+                        "current_quantity": current_qty,
                     }
                 )
+
         supabase.table("inventory_items").update(
             {
                 "previous_quantity": prev_qty,
                 "quantity_difference": difference,
             }
-        ).eq("id", item["id"]).execute()
+        ).eq("id", item_id).execute()
 
     completed_at = datetime.now(timezone.utc).isoformat()
     update_resp = (
@@ -319,15 +429,14 @@ def complete_session(
         .execute()
     )
 
-    _recalculate_totals(supabase, session_id)
-
-    data = update_resp.data[0] if update_resp.data else None
-    if data is None:
+    if not update_resp.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Session completion failed",
         )
-    return data
+
+    _recalculate_totals(supabase, session_id)
+    return _fetch_session_row()
 
 
 @router.get(

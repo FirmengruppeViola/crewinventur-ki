@@ -404,7 +404,7 @@ export function ShelfScanPage() {
           merge_mode: product.duplicate_in_session ? 'add' : undefined,
         })
         savedCount++
-      } catch (error) {
+      } catch {
         newFailed.add(i)
       }
     }

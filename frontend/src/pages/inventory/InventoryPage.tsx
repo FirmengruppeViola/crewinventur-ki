@@ -16,6 +16,7 @@ import {
   useCreateInventoryBundle,
   useCreateInventorySession,
   useInventorySessions,
+  type InventorySession,
 } from '../../features/inventory/useInventory'
 import { useUiStore } from '../../stores/uiStore'
 
@@ -67,7 +68,7 @@ export function InventoryPage() {
   
   const [isOpen, setIsOpen] = useState(false)
   const [isBundleOpen, setIsBundleOpen] = useState(false)
-  const [selectedCompletedSession, setSelectedCompletedSession] = useState<any | null>(null)
+  const [selectedCompletedSession, setSelectedCompletedSession] = useState<InventorySession | null>(null)
   
   const [locationId, setLocationId] = useState('')
   const [sessionName, setSessionName] = useState('')

@@ -218,7 +218,7 @@ export function TeamSection({ variant = 'page' }: TeamSectionProps) {
       setSelectedLocations([])
       setShowCodeModal(result)
       addToast('Einladung erstellt', 'success')
-    } catch (error) {
+    } catch {
       addToast('Fehler beim Erstellen der Einladung', 'error')
     }
   }

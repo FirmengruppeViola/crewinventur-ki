@@ -23,12 +23,12 @@ export function SessionSummaryPage() {
   const { id } = useParams()
   const sessionId = id ?? ''
   const navigate = useViewNavigate()
-  const { session: authSession } = useAuth()
+  const { session: authSession, isOwner } = useAuth()
   const addToast = useUiStore((state) => state.addToast)
   const { data: session, isLoading } = useInventorySession(sessionId)
   const { data: items } = useSessionItems(sessionId)
   const { data: products } = useProducts()
-  const { data: validation } = useExportValidation(sessionId)
+  const { data: validation } = useExportValidation(sessionId, { enabled: isOwner })
 
   const location = useLocationData(session?.location_id)
   const productMap = new Map(products?.map((product) => [product.id, product]) ?? [])
@@ -57,6 +57,7 @@ export function SessionSummaryPage() {
 
   // Pre-fill email when opening modal
   const openEmailModal = () => {
+    if (!isOwner) return
     if (accountantEmail && !email) {
       setEmail(accountantEmail)
     }
@@ -67,12 +68,17 @@ export function SessionSummaryPage() {
     return <DetailPageSkeleton />
   }
 
-  const hasMissingPrices = validation && !validation.valid
+  const missingPricesValidation = isOwner && validation && !validation.valid ? validation : null
 
   const downloadFile = async (format: 'pdf' | 'csv' | 'csv-summary') => {
+    if (!isOwner) return
+
     // Warn about missing prices but allow download
-    if (hasMissingPrices) {
-      addToast(`Warnung: ${validation.missing_count} Produkte ohne Preis`, 'info')
+    if (missingPricesValidation) {
+      addToast(
+        `Warnung: ${missingPricesValidation.missing_count ?? 0} Produkte ohne Preis`,
+        'info',
+      )
     }
 
     const filename =
@@ -96,6 +102,7 @@ export function SessionSummaryPage() {
 
   const handleSendEmail = async (event: FormEvent) => {
     event.preventDefault()
+    if (!isOwner) return
     if (!authSession?.access_token) {
       addToast('Bitte zuerst einloggen.', 'error')
       return
@@ -147,7 +154,7 @@ export function SessionSummaryPage() {
       </header>
 
       {/* Missing Prices Warning */}
-      {hasMissingPrices && (
+      {missingPricesValidation && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <div className="flex items-start gap-4 p-4">
             <div className="p-2 rounded-xl bg-amber-500/20">
@@ -155,7 +162,7 @@ export function SessionSummaryPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-foreground">
-                {validation.missing_count} Produkte ohne Preis
+                {missingPricesValidation.missing_count} Produkte ohne Preis
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Vor dem Export sollten alle Preise eingetragen werden.
@@ -177,21 +184,23 @@ export function SessionSummaryPage() {
           Items: <span className="text-foreground font-medium">{session.total_items}</span> ·
           Wert: <span className="text-emerald-500 font-medium">{Number(session.total_value).toFixed(2)} EUR</span>
         </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row flex-wrap">
-          <Button variant="secondary" size="sm" onClick={() => downloadFile('pdf')}>
-            PDF exportieren
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => downloadFile('csv')}>
-            CSV exportieren
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => downloadFile('csv-summary')}>
-            CSV Zusammenfassung
-          </Button>
-          <Button variant="secondary" size="sm" onClick={openEmailModal}>
-            <Send className="mr-1.5 h-3.5 w-3.5" />
-            {accountantEmail ? 'An Steuerberater senden' : 'Per Email senden'}
-          </Button>
-        </div>
+        {isOwner ? (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row flex-wrap">
+            <Button variant="secondary" size="sm" onClick={() => downloadFile('pdf')}>
+              PDF exportieren
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => downloadFile('csv')}>
+              CSV exportieren
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => downloadFile('csv-summary')}>
+              CSV Zusammenfassung
+            </Button>
+            <Button variant="secondary" size="sm" onClick={openEmailModal}>
+              <Send className="mr-1.5 h-3.5 w-3.5" />
+              {accountantEmail ? 'An Steuerberater senden' : 'Per Email senden'}
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       <Card title="Positionen">

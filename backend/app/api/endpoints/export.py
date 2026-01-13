@@ -4,13 +4,21 @@ from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, EmailStr, Field
 
-from app.api.deps import get_current_user
+from app.api.deps import UserContext, get_current_user_context
 from app.core.config import settings
 from app.core.supabase import get_supabase
 from app.services.email_service import send_inventory_email
 from app.services.pdf_generator import generate_bundle_pdf, generate_inventory_pdf
 
 router = APIRouter()
+
+
+def require_owner(current_user: UserContext) -> None:
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can access this feature",
+        )
 
 
 class SendEmailRequest(BaseModel):
@@ -47,7 +55,9 @@ def _load_session_data(supabase, session_id: str, user_id: str):
     )
     session = session_resp.data[0] if session_resp.data else None
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
 
     items = (
         supabase.table("inventory_items")
@@ -64,12 +74,7 @@ def _load_session_data(supabase, session_id: str, user_id: str):
     )
     location = location_resp.data[0] if location_resp.data else {}
 
-    profile_resp = (
-        supabase.table("profiles")
-        .select("*")
-        .eq("id", user_id)
-        .execute()
-    )
+    profile_resp = supabase.table("profiles").select("*").eq("id", user_id).execute()
     profile = profile_resp.data[0] if profile_resp.data else None
 
     product_ids = list({item["product_id"] for item in items})
@@ -85,7 +90,9 @@ def _load_session_data(supabase, session_id: str, user_id: str):
         products = products_resp.data or []
         product_map = {product["id"]: product for product in products}
 
-        category_ids = list({p.get("category_id") for p in products if p.get("category_id")})
+        category_ids = list(
+            {p.get("category_id") for p in products if p.get("category_id")}
+        )
         if category_ids:
             categories_resp = (
                 supabase.table("categories")
@@ -93,12 +100,16 @@ def _load_session_data(supabase, session_id: str, user_id: str):
                 .in_("id", category_ids)
                 .execute()
             )
-            category_map = {cat["id"]: cat["name"] for cat in categories_resp.data or []}
+            category_map = {
+                cat["id"]: cat["name"] for cat in categories_resp.data or []
+            }
 
     return session, items, location, profile, product_map, category_map
 
 
-def _build_category_totals(items: list[dict], product_map: dict, category_map: dict) -> dict:
+def _build_category_totals(
+    items: list[dict], product_map: dict, category_map: dict
+) -> dict:
     totals: dict[str, dict[str, float]] = {}
     for item in items:
         product = product_map.get(item.get("product_id"), {})
@@ -144,7 +155,10 @@ def _build_summary_csv(
 
 
 @router.get("/export/session/{session_id}/pdf")
-def export_session_pdf(session_id: str, current_user=Depends(get_current_user)):
+def export_session_pdf(
+    session_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
     session, items, location, profile, product_map, category_map = _load_session_data(
         supabase, session_id, current_user.id
@@ -162,12 +176,17 @@ def export_session_pdf(session_id: str, current_user=Depends(get_current_user)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=inventory-{session_id}.pdf"},
+        headers={
+            "Content-Disposition": f"attachment; filename=inventory-{session_id}.pdf"
+        },
     )
 
 
 @router.get("/export/session/{session_id}/csv")
-def export_session_csv(session_id: str, current_user=Depends(get_current_user)):
+def export_session_csv(
+    session_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
     session, items, location, profile, product_map, category_map = _load_session_data(
         supabase, session_id, current_user.id
@@ -193,12 +212,17 @@ def export_session_csv(session_id: str, current_user=Depends(get_current_user)):
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=inventory-{session_id}.csv"},
+        headers={
+            "Content-Disposition": f"attachment; filename=inventory-{session_id}.csv"
+        },
     )
 
 
 @router.get("/export/session/{session_id}/csv-summary")
-def export_session_csv_summary(session_id: str, current_user=Depends(get_current_user)):
+def export_session_csv_summary(
+    session_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
     session, items, location, profile, product_map, category_map = _load_session_data(
         supabase, session_id, current_user.id
@@ -220,8 +244,9 @@ def export_session_csv_summary(session_id: str, current_user=Depends(get_current
 async def send_session_email(
     session_id: str,
     payload: SendEmailRequest,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
+    require_owner(current_user)
     if not settings.SMTP_HOST or not settings.SMTP_FROM:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -258,7 +283,7 @@ async def send_session_email(
         <h2>Inventur von {company}</h2>
         <p>Standort: {loc_name}</p>
         <p>Datum: {date}</p>
-        <p>Gesamtwert: {float(session.get('total_value') or 0):.2f} EUR</p>
+        <p>Gesamtwert: {float(session.get("total_value") or 0):.2f} EUR</p>
         <p>Im Anhang finden Sie die Inventurliste (PDF) sowie eine Zusammenfassung (CSV).</p>
         """
 
@@ -291,7 +316,9 @@ def _get_missing_price_items(supabase, session_id: str, user_id: str) -> list[di
         .execute()
     )
     if not session_resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
 
     # Get items with no price or zero price
     items_resp = (
@@ -304,7 +331,8 @@ def _get_missing_price_items(supabase, session_id: str, user_id: str) -> list[di
 
     # Filter items with missing price
     missing_items = [
-        item for item in items
+        item
+        for item in items
         if item.get("unit_price") is None or item.get("unit_price") == 0
     ]
 
@@ -324,24 +352,31 @@ def _get_missing_price_items(supabase, session_id: str, user_id: str) -> list[di
     result = []
     for item in missing_items:
         product = product_map.get(item["product_id"], {})
-        result.append({
-            "item_id": item["id"],
-            "product_id": item["product_id"],
-            "product_name": product.get("name", "Unbekannt"),
-            "product_brand": product.get("brand"),
-            "quantity": item.get("quantity") or 0,
-            "unit_price": item.get("unit_price"),
-        })
+        result.append(
+            {
+                "item_id": item["id"],
+                "product_id": item["product_id"],
+                "product_name": product.get("name", "Unbekannt"),
+                "product_brand": product.get("brand"),
+                "quantity": item.get("quantity") or 0,
+                "unit_price": item.get("unit_price"),
+            }
+        )
 
     return result
 
 
-@router.get("/export/session/{session_id}/missing-prices", response_model=MissingPricesResponse)
-def get_missing_prices(session_id: str, current_user=Depends(get_current_user)):
+@router.get(
+    "/export/session/{session_id}/missing-prices", response_model=MissingPricesResponse
+)
+def get_missing_prices(
+    session_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
     """
     Get all items in a session that have no price set.
     Used to validate before export and show price review slideshow.
     """
+    require_owner(current_user)
     supabase = get_supabase()
     missing_items = _get_missing_price_items(supabase, session_id, current_user.id)
     return MissingPricesResponse(count=len(missing_items), items=missing_items)
@@ -352,12 +387,13 @@ def update_item_price(
     session_id: str,
     item_id: str,
     payload: UpdateItemPriceRequest,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Update the price of a single inventory item.
     Used from the price review slideshow.
     """
+    require_owner(current_user)
     supabase = get_supabase()
 
     # Verify session ownership
@@ -369,7 +405,9 @@ def update_item_price(
         .execute()
     )
     if not session_resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
 
     # Get the item
     item_resp = (
@@ -380,7 +418,9 @@ def update_item_price(
         .execute()
     )
     if not item_resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
+        )
 
     item = item_resp.data[0]
     quantity = item.get("quantity") or 1
@@ -389,10 +429,12 @@ def update_item_price(
     # Update the item
     updated = (
         supabase.table("inventory_items")
-        .update({
-            "unit_price": payload.unit_price,
-            "total_price": total_price,
-        })
+        .update(
+            {
+                "unit_price": payload.unit_price,
+                "total_price": total_price,
+            }
+        )
         .eq("id", item_id)
         .execute()
     )
@@ -406,9 +448,11 @@ def update_item_price(
     ).data or []
     new_total = sum(float(i.get("total_price") or 0) for i in all_items)
 
-    supabase.table("inventory_sessions").update({
-        "total_value": new_total,
-    }).eq("id", session_id).execute()
+    supabase.table("inventory_sessions").update(
+        {
+            "total_value": new_total,
+        }
+    ).eq("id", session_id).execute()
 
     return {"message": "Price updated", "item_id": item_id, "new_total": new_total}
 
@@ -416,12 +460,13 @@ def update_item_price(
 @router.get("/export/session/{session_id}/validate")
 def validate_session_for_export(
     session_id: str,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
     """
     Validate if session can be exported (all items have prices).
     Returns validation status and missing items if any.
     """
+    require_owner(current_user)
     supabase = get_supabase()
     missing_items = _get_missing_price_items(supabase, session_id, current_user.id)
 
@@ -440,7 +485,10 @@ def validate_session_for_export(
 
 
 @router.get("/export/bundle/{bundle_id}/pdf")
-def export_bundle_pdf(bundle_id: str, current_user=Depends(get_current_user)):
+def export_bundle_pdf(
+    bundle_id: str, current_user: UserContext = Depends(get_current_user_context)
+):
+    require_owner(current_user)
     supabase = get_supabase()
 
     bundle_resp = (
@@ -451,7 +499,9 @@ def export_bundle_pdf(bundle_id: str, current_user=Depends(get_current_user)):
         .execute()
     )
     if not bundle_resp.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found"
+        )
     bundle = bundle_resp.data[0]
 
     links_resp = (
@@ -470,8 +520,8 @@ def export_bundle_pdf(bundle_id: str, current_user=Depends(get_current_user)):
     sessions_data = []
     profile = None
     for session_id in session_ids:
-        session, items, location, profile, product_map, category_map = _load_session_data(
-            supabase, session_id, current_user.id
+        session, items, location, profile, product_map, category_map = (
+            _load_session_data(supabase, session_id, current_user.id)
         )
         sessions_data.append(
             {
@@ -492,5 +542,7 @@ def export_bundle_pdf(bundle_id: str, current_user=Depends(get_current_user)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=inventory-bundle-{bundle_id}.pdf"},
+        headers={
+            "Content-Disposition": f"attachment; filename=inventory-bundle-{bundle_id}.pdf"
+        },
     )

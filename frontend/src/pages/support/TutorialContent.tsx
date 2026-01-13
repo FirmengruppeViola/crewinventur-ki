@@ -1,7 +1,47 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import ReactCanvasConfetti from 'react-confetti';
-import { Sparkles, Trophy, Zap, ArrowRight, Play, CheckCircle, Target, Camera, Zap as ZapIcon, Menu as MenuIcon, Home, Eye } from 'lucide-react';
+import { Sparkles, Trophy, Zap, ArrowRight, Play, CheckCircle, Target, Camera, Zap as ZapIcon, Menu as MenuIcon, Home, Eye, type LucideIcon } from 'lucide-react';
+
+type TutorialChapterContentItem =
+  | {
+      type: 'intro' | 'concept'
+      text: string
+      title?: string
+    }
+  | {
+      type: 'step'
+      number: number
+      text: string
+      detail?: string
+    }
+  | {
+      type: 'interactive'
+      title: string
+      action: string
+      icon: LucideIcon
+    }
+  | {
+      type: 'fact' | 'pro-tip' | 'feature' | 'success-story'
+      title: string
+      text: string
+    }
+
+type TutorialChapter = {
+  id: number
+  title: string
+  emoji: string
+  description: string
+  color: string
+  content: TutorialChapterContentItem[]
+}
+
+type TutorialAchievement = {
+  id: string
+  title: string
+  icon: LucideIcon
+  condition: boolean
+}
 
 const TutorialContent = () => {
   const [activeChapter, setActiveChapter] = useState(0);
@@ -11,7 +51,7 @@ const TutorialContent = () => {
   const [level, setLevel] = useState(1);
   const chapterRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const chapters = [
+  const chapters: TutorialChapter[] = [
     {
       id: 0,
       title: 'Los geht\'s! 🚀',
@@ -262,14 +302,14 @@ const TutorialContent = () => {
     }
   };
 
-  const achievements = [
+  const achievements: TutorialAchievement[] = [
     { id: 'first-scan', title: 'Erster Scan', icon: Camera, condition: completedChapters.includes(1) },
     { id: 'first-session', title: 'Erste Session', icon: Target, condition: completedChapters.includes(2) },
     { id: 'ai-master', title: 'KI-Meister', icon: Zap, condition: completedChapters.includes(6) },
     { id: 'all-chapters', title: 'Wissenswert', icon: Trophy, condition: completedChapters.length === chapters.length },
   ];
 
-  const renderContent = (item: any, index: number) => {
+  const renderContent = (item: TutorialChapterContentItem, index: number) => {
     const animations = {
       hidden: { opacity: 0, x: -50 },
       visible: { opacity: 1, x: 0 },
@@ -320,7 +360,7 @@ const TutorialContent = () => {
           </motion.div>
         );
 
-      case 'interactive':
+      case 'interactive': {
         const IconComponent = item.icon;
         return (
           <motion.div
@@ -340,6 +380,7 @@ const TutorialContent = () => {
             <p className="text-white/90 text-base">{item.action}</p>
           </motion.div>
         );
+      }
 
       case 'fact':
         return (

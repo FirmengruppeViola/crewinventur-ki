@@ -7,6 +7,7 @@ import { BottomSheet } from '../ui/BottomSheet'
 import { Button } from '../ui/Button'
 import { Loading } from '../ui/Loading'
 import { useInventorySessions } from '../../features/inventory/useInventory'
+import { useAuth } from '../../features/auth/useAuth'
 import { useViewNavigate } from '../../hooks/useViewNavigate'
 
 const navLeftItems = [
@@ -22,6 +23,7 @@ const navRightItems = [
 export function BottomNav() {
   const location = useLocation()
   const navigate = useViewNavigate()
+  const { isOwner } = useAuth()
   const { prefetchDashboard, prefetchLocations, prefetchInventory } = usePrefetch()
   const { data: sessions, isLoading: loadingSessions } = useInventorySessions()
   const [showScanSheet, setShowScanSheet] = useState(false)
@@ -69,6 +71,8 @@ export function BottomNav() {
       handleOpenCreate()
     }
   }, [activeSessions.length, handleOpenCreate, loadingSessions, showScanSheet])
+
+  const rightItems = isOwner ? navRightItems : navRightItems.filter((item) => item.to !== '/invoices')
 
   return (
     <>
@@ -124,7 +128,7 @@ export function BottomNav() {
           </div>
 
           <div className="flex items-center gap-1">
-            {navRightItems.map((item) => {
+            {rightItems.map((item) => {
               const isActive =
                 location.pathname === item.to ||
                 (item.to !== '/dashboard' && location.pathname.startsWith(`${item.to}/`))

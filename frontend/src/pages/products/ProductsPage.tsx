@@ -80,7 +80,7 @@ export function ProductsPage() {
         addToast('Produkt aktualisiert.', 'success')
       }
       handleClose()
-    } catch (err) {
+    } catch {
       addToast('Speichern fehlgeschlagen.', 'error')
     }
   }
@@ -91,7 +91,7 @@ export function ProductsPage() {
       await deleteProduct.mutateAsync()
       addToast('Produkt gelöscht.', 'success')
       handleClose()
-    } catch (err) {
+    } catch {
       addToast('Löschen fehlgeschlagen.', 'error')
     }
   }

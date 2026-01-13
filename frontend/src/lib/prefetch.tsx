@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../features/auth/useAuth'

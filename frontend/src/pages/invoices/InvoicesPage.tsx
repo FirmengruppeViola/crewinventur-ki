@@ -294,7 +294,7 @@ function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: Invoice | n
       await processInvoice.mutateAsync()
       addToast('Verarbeitung gestartet.', 'success')
       onClose()
-    } catch (error) {
+    } catch {
       addToast('Fehler beim Starten.', 'error')
     }
   }
@@ -347,12 +347,12 @@ function InvoiceDetailSheet({ invoice, isOpen, onClose }: { invoice: Invoice | n
          </div>
          
          <div className="flex flex-col gap-3 pt-2">
-           {(invoice.status === 'draft' || invoice.status === 'error') && (
-             <Button className="w-full h-12 shadow-glow hover:scale-[1.01] active:scale-[0.99] transition-all" onClick={handleProcess} loading={processInvoice.isPending}>
-               <Sparkles className="mr-2 h-5 w-5" />
-               KI-Verarbeitung starten
-             </Button>
-           )}
+              {(invoice.status === 'pending' || invoice.status === 'error') && (
+                <Button className="w-full h-12 shadow-glow hover:scale-[1.01] active:scale-[0.99] transition-all" onClick={handleProcess} loading={processInvoice.isPending} disabled={processInvoice.isPending}>
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  KI-Verarbeitung starten
+                </Button>
+              )}
            
            <Link viewTransition to={`/invoices/${invoice.id}/match`} className="w-full">
              <Button variant="secondary" className="w-full h-12 hover:bg-secondary/80">

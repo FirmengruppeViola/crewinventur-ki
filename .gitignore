@@ -60,6 +60,9 @@ dist-ssr/
 .env.local
 .env.*.local
 .env.production
+.env.*
+!.env.example
+!.env.*.example
 
 # Database
 *.db
@@ -81,3 +84,18 @@ dmypy.json
 
 # Implementation Plan (contains credentials)
 IMPLEMENTATION_PLAN.xml
+
+# Accidental/generated artifacts
+/BUG_FIX_PLAN.md
+/BUG_FIX_SUMMARY.md
+/Deployment_Guide.html
+/screen.png
+/package/
+aparajita-*.tgz
+
+# Local scripts / local migrations (do not commit)
+/deploy_supabase_migration.bat
+/backend/migrations/2025-01-12-critical-bug-fixes.sql
+
+# Supabase CLI temp files
+supabase/.temp/

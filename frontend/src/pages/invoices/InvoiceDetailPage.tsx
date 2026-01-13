@@ -17,7 +17,7 @@ export function InvoiceDetailPage() {
   const handleProcess = async () => {
     try {
       await processInvoice.mutateAsync()
-      addToast('Rechnung verarbeitet.', 'success')
+      addToast('Verarbeitung gestartet.', 'success')
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Verarbeitung fehlgeschlagen.',

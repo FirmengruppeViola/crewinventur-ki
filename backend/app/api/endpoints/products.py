@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from app.api.deps import get_current_user
+from app.api.deps import UserContext, get_current_user_context
 from app.core.supabase import get_supabase
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
 from app.utils.query_helpers import escape_like_pattern, normalize_search_query
@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.get("/products", response_model=list[ProductOut])
 def list_products(
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     category_id: str | None = None,
@@ -19,7 +19,8 @@ def list_products(
     start = (page - 1) * limit
     end = start + limit - 1
 
-    query = supabase.table("products").select("*").eq("user_id", current_user.id)
+    tenant_user_id = current_user.effective_owner_id
+    query = supabase.table("products").select("*").eq("user_id", tenant_user_id)
 
     if category_id:
         query = query.eq("category_id", category_id)
@@ -35,11 +36,22 @@ def list_products(
 @router.post(
     "/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED
 )
-def create_product(payload: ProductCreate, current_user=Depends(get_current_user)):
+def create_product(
+    payload: ProductCreate,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can create products",
+        )
+
+    tenant_user_id = current_user.effective_owner_id
+
     supabase = get_supabase()
     response = (
         supabase.table("products")
-        .insert({**payload.model_dump(), "user_id": current_user.id})
+        .insert({**payload.model_dump(), "user_id": tenant_user_id})
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -52,13 +64,17 @@ def create_product(payload: ProductCreate, current_user=Depends(get_current_user
 
 
 @router.get("/products/{product_id}", response_model=ProductOut)
-def get_product(product_id: str, current_user=Depends(get_current_user)):
+def get_product(
+    product_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
     supabase = get_supabase()
+    tenant_user_id = current_user.effective_owner_id
     response = (
         supabase.table("products")
         .select("*")
         .eq("id", product_id)
-        .eq("user_id", current_user.id)
+        .eq("user_id", tenant_user_id)
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -74,8 +90,16 @@ def get_product(product_id: str, current_user=Depends(get_current_user)):
 def update_product(
     product_id: str,
     payload: ProductUpdate,
-    current_user=Depends(get_current_user),
+    current_user: UserContext = Depends(get_current_user_context),
 ):
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can update products",
+        )
+
+    tenant_user_id = current_user.effective_owner_id
+
     supabase = get_supabase()
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
@@ -88,7 +112,7 @@ def update_product(
         supabase.table("products")
         .update(update_data)
         .eq("id", product_id)
-        .eq("user_id", current_user.id)
+        .eq("user_id", tenant_user_id)
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -101,13 +125,24 @@ def update_product(
 
 
 @router.delete("/products/{product_id}", response_model=ProductOut)
-def delete_product(product_id: str, current_user=Depends(get_current_user)):
+def delete_product(
+    product_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    if current_user.is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can delete products",
+        )
+
+    tenant_user_id = current_user.effective_owner_id
+
     supabase = get_supabase()
     response = (
         supabase.table("products")
         .delete()
         .eq("id", product_id)
-        .eq("user_id", current_user.id)
+        .eq("user_id", tenant_user_id)
         .execute()
     )
     data = response.data[0] if response.data else None
@@ -120,15 +155,21 @@ def delete_product(product_id: str, current_user=Depends(get_current_user)):
 
 
 @router.get("/products/search", response_model=list[ProductOut])
-def search_products(q: str, current_user=Depends(get_current_user)):
+def search_products(
+    q: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
     supabase = get_supabase()
+    tenant_user_id = current_user.effective_owner_id
+
     normalized_q = normalize_search_query(q)
     if not normalized_q:
         return []
+
     response = (
         supabase.table("products")
         .select("*")
-        .eq("user_id", current_user.id)
+        .eq("user_id", tenant_user_id)
         .ilike("name", escape_like_pattern(normalized_q))
         .limit(20)
         .execute()
@@ -137,12 +178,17 @@ def search_products(q: str, current_user=Depends(get_current_user)):
 
 
 @router.get("/products/barcode/{code}", response_model=ProductOut)
-def get_by_barcode(code: str, current_user=Depends(get_current_user)):
+def get_by_barcode(
+    code: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
     supabase = get_supabase()
+    tenant_user_id = current_user.effective_owner_id
+
     response = (
         supabase.table("products")
         .select("*")
-        .eq("user_id", current_user.id)
+        .eq("user_id", tenant_user_id)
         .eq("barcode", code)
         .limit(1)
         .execute()

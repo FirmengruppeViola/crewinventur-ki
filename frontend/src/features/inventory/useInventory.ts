@@ -391,7 +391,7 @@ export function useMissingPrices(sessionId?: string) {
   })
 }
 
-export function useExportValidation(sessionId?: string) {
+export function useExportValidation(sessionId?: string, options?: { enabled?: boolean }) {
   const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
@@ -404,7 +404,7 @@ export function useExportValidation(sessionId?: string) {
         { method: 'GET' },
         token,
       ),
-    enabled: Boolean(token && sessionId),
+    enabled: Boolean(token && sessionId && (options?.enabled ?? true)),
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<ExportValidation>(queryKey)

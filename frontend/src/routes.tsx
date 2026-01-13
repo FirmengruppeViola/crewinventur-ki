@@ -118,6 +118,14 @@ export const protectedRoutes: RouteObject[] = [
   { path: '/inventory/sessions/:id/scan', element: <InventoryScanPage /> },
   { path: '/inventory/sessions/:id/shelf-scan', element: <ShelfScanPage /> },
   { path: '/inventory/sessions/:id/summary', element: <SessionSummaryPage /> },
+
+  // Settings
+  { path: '/settings', element: <SettingsPage /> },
+  { path: '/settings/profile', element: <ProfilePage /> },
+]
+
+export const ownerOnlyRoutes: RouteObject[] = [
+  // Inventory
   { path: '/inventory/sessions/:id/price-review', element: <PriceReviewPage /> },
 
   // Invoices
@@ -126,8 +134,6 @@ export const protectedRoutes: RouteObject[] = [
   { path: '/invoices/:id/match', element: <InvoiceMatchingPage /> },
 
   // Settings
-  { path: '/settings', element: <SettingsPage /> },
-  { path: '/settings/profile', element: <ProfilePage /> },
   { path: '/settings/team', element: <TeamPage /> },
   { path: '/settings/billing', element: <BillingPage /> },
 ]

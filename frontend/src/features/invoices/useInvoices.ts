@@ -38,11 +38,21 @@ export function useInvoices() {
   const { session } = useAuth()
   const token = session?.access_token
   const queryKey = ['invoices']
-  return useQuery({
+  return useQuery<Invoice[]>({
     queryKey,
     queryFn: () =>
       apiRequest<Invoice[]>('/api/v1/invoices', { method: 'GET' }, token),
     enabled: Boolean(token),
+    refetchInterval: (query) => {
+      const invoices = query.state.data
+      const shouldPoll = Boolean(
+        invoices?.some(
+          (invoice) =>
+            invoice.status === 'pending' || invoice.status === 'processing',
+        ),
+      )
+      return shouldPoll ? 2000 : false
+    },
     placeholderData: () =>
       queryClient.getQueryData<Invoice[]>(queryKey),
   })
@@ -53,7 +63,7 @@ export function useInvoice(invoiceId?: string) {
   const { session } = useAuth()
   const token = session?.access_token
   const queryKey = ['invoices', invoiceId]
-  return useQuery({
+  return useQuery<Invoice>({
     queryKey,
     queryFn: () =>
       apiRequest<Invoice>(
@@ -62,6 +72,13 @@ export function useInvoice(invoiceId?: string) {
         token,
       ),
     enabled: Boolean(token && invoiceId),
+    refetchInterval: (query) => {
+      const invoice = query.state.data
+      if (!invoice) return false
+      const shouldPoll =
+        invoice.status === 'pending' || invoice.status === 'processing'
+      return shouldPoll ? 2000 : false
+    },
     placeholderData: () =>
       invoiceId
         ? queryClient.getQueryData<Invoice>(queryKey)
@@ -98,7 +115,7 @@ export function useUploadInvoice() {
     mutationFn: (file: File) => {
       const formData = new FormData()
       formData.append('file', file)
-      return apiUpload<Invoice>('/api/v1/invoices/upload', formData, token)
+      return apiUpload<Invoice>('/api/v1/invoices/upload', formData, token, 120000)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
