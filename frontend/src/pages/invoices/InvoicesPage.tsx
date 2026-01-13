@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Upload, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, HelpCircle, FileStack, X, Brain, Receipt, Calendar, Zap, Sparkles } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { ListPageSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice, type Invoice, type InvoiceItem } from '../../features/invoices/useInvoices'
@@ -53,7 +52,7 @@ const invoiceOnboardingSlides: OnboardingSlide[] = [
 export function InvoicesPage() {
   const fileRef = useRef<HTMLInputElement | null>(null)
   const addToast = useUiStore((state) => state.addToast)
-  const { data: invoices, isLoading } = useInvoices()
+  const { data: invoices } = useInvoices()
   const uploadInvoice = useUploadInvoice()
   
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -141,10 +140,6 @@ export function InvoicesPage() {
     setUploadProgress(null)
   }
   
-  if (isLoading) {
-    return <ListPageSkeleton />
-  }
-  
   return (
     <>
       {showOnboarding && (
@@ -157,7 +152,7 @@ export function InvoicesPage() {
       )}
       
       <div className="space-y-6 pb-40">
-        <header className="px-1 flex items-center justify-between animate-fade-in-up">
+        <header className="px-1 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Preise & Rechnungen</h1>
             <p className="text-sm text-muted-foreground">KI-gestützte Preisfassung</p>
@@ -177,7 +172,7 @@ export function InvoicesPage() {
         </header>
         
         {invoices && invoices.length > 0 ? (
-          <div className="grid gap-4 animate-fade-in-up delay-100">
+          <div className="grid gap-4">
             {invoices.map((invoice, index) => {
               const statusColor = 
                 invoice.status === 'processed' ? 'text-success' :
@@ -219,8 +214,8 @@ export function InvoicesPage() {
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in-up delay-100">
-            <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 mb-4 animate-float">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 mb-4">
               <FileStack className="h-12 w-12 text-primary" />
             </div>
             <h3 className="text-lg font-semibold text-foreground">Keine Rechnungen</h3>
