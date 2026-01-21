@@ -267,15 +267,14 @@ Wenn es abstürzt, arbeite so weiter:
 > Hier wird **nur** händisch der Fortschritt festgehalten, um nach Crash weiterzumachen.
 
 ### Aktueller Fokus
-- [ ] Phase 1: Fundament stabilisieren
-- [ ] Phase 2: Kern-Inventur UX
+- [x] Phase 1: Fundament stabilisieren
+- [x] Phase 2: Kern-Inventur UX
 - [x] Phase 3: Rechnungimport → Preise
-- [ ] Phase 4: Exporte/Steuerberater
-- [ ] Phase 5: Multi-Location & Team
-- [ ] Phase 6: Reorder
+- [x] Phase 4: Exporte/Steuerberater
+- [x] Phase 5: Multi-Location & Team
+- [x] Phase 6: Reorder
 
 ### Letzter Checkpoint
 - Datum: 2026-01-21
-- Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Review-Flow erweitert, OCR-Fallback aktiv.
-- Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Audit-Log-View im Session Summary, OCR-Fallback aktiv.
-- Nächster Schritt: Verbrauch/Trend-basierte Vorschlaege für Reorder (weitere Verfeinerung).
+- Was wurde verifiziert/entschieden: Reorder-Vorschlaege per Verbrauch/Trend + Export (CSV/PDF) implementiert, Audit-Log-View sichtbar, OCR-Fallback aktiv.
+- Nächster Schritt: Optionaler Feinschliff (4-Augen-Abschluss, Trend-Methodik verbessern, Monitoring).
