@@ -1,7 +1,10 @@
 import base64
 import logging
 import mimetypes
+from io import BytesIO
+from zipfile import BadZipFile, ZipFile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import anyio
@@ -30,6 +33,15 @@ from app.utils.query_helpers import escape_like_pattern
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+ALLOWED_INVOICE_EXTENSIONS = {
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+}
+
 
 def _guess_mime_type(file_name: str) -> str:
     mime_type, _ = mimetypes.guess_type(file_name)
@@ -38,6 +50,10 @@ def _guess_mime_type(file_name: str) -> str:
     if file_name.lower().endswith(".pdf"):
         return "application/pdf"
     return "application/octet-stream"
+
+
+def _is_allowed_invoice_file(file_name: str) -> bool:
+    return file_name.lower().endswith(tuple(ALLOWED_INVOICE_EXTENSIONS))
 
 
 def _process_invoice_background(invoice_id: str, user_id: str) -> None:
@@ -361,6 +377,130 @@ async def upload_invoice(
         .execute()
     )
     return refreshed.data[0] if refreshed.data else invoice_data
+
+
+@router.post("/invoices/upload-zip", status_code=status.HTTP_201_CREATED)
+async def upload_invoice_zip(
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    require_owner(current_user)
+    supabase = get_supabase()
+    storage = get_storage_service()
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please upload a .zip file",
+        )
+
+    file_bytes = await file.read()
+
+    try:
+        zip_file = ZipFile(BytesIO(file_bytes))
+    except BadZipFile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ZIP file",
+        )
+
+    created: list[str] = []
+    errors: list[dict[str, str]] = []
+    valid_entries = 0
+
+    with zip_file:
+        for info in zip_file.infolist():
+            if info.is_dir():
+                continue
+
+            entry_name = Path(info.filename).name
+            if not entry_name:
+                continue
+
+            if not _is_allowed_invoice_file(entry_name):
+                errors.append(
+                    {
+                        "file": entry_name,
+                        "error": "Unsupported file type",
+                    }
+                )
+                continue
+
+            valid_entries += 1
+
+            try:
+                entry_bytes = zip_file.read(info)
+                if not entry_bytes:
+                    raise ValueError("File is empty")
+
+                upload_mime_type = _guess_mime_type(entry_name)
+
+                storage_key = storage.generate_key(
+                    user_id=current_user.id,
+                    category="invoices",
+                    filename=entry_name,
+                    include_date=True,
+                )
+
+                await storage.upload(entry_bytes, storage_key, upload_mime_type)
+
+                invoice_resp = (
+                    supabase.table("invoices")
+                    .insert(
+                        {
+                            "user_id": current_user.id,
+                            "file_url": storage_key,
+                            "file_name": entry_name,
+                            "file_size": len(entry_bytes),
+                            "status": "pending",
+                            "processing_error": None,
+                            "processed_at": None,
+                        }
+                    )
+                    .execute()
+                )
+
+                invoice_data = invoice_resp.data[0] if invoice_resp.data else None
+                if not isinstance(invoice_data, dict):
+                    await storage.delete(storage_key)
+                    raise ValueError("Invoice creation failed")
+
+                invoice_id = invoice_data.get("id")
+                if not isinstance(invoice_id, str) or not invoice_id:
+                    await storage.delete(storage_key)
+                    raise ValueError("Invoice creation failed")
+
+                background_tasks.add_task(
+                    _process_invoice_background, invoice_id, current_user.id
+                )
+                created.append(invoice_id)
+            except Exception as exc:
+                logger.exception(
+                    "Invoice ZIP upload failed for %s (user_id=%s): %s",
+                    entry_name,
+                    current_user.id,
+                    exc,
+                )
+                errors.append(
+                    {
+                        "file": entry_name,
+                        "error": str(exc),
+                    }
+                )
+
+    if valid_entries == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ZIP contains no supported invoice files",
+        )
+
+    return {
+        "created": len(created),
+        "failed": len(errors),
+        "errors": errors,
+        "invoice_ids": created,
+    }
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceOut)

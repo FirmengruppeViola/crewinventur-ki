@@ -33,6 +33,13 @@ export type InvoiceItem = {
   is_manually_matched: boolean
 }
 
+export type InvoiceZipUploadResult = {
+  created: number
+  failed: number
+  errors?: Array<{ file: string; error: string }>
+  invoice_ids?: string[]
+}
+
 export function useInvoices() {
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -116,6 +123,27 @@ export function useUploadInvoice() {
       const formData = new FormData()
       formData.append('file', file)
       return apiUpload<Invoice>('/api/v1/invoices/upload', formData, token, 120000)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
+export function useUploadInvoiceZip() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return apiUpload<InvoiceZipUploadResult>(
+        '/api/v1/invoices/upload-zip',
+        formData,
+        token,
+        120000,
+      )
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })

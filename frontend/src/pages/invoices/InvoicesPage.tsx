@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { BottomSheet } from '../../components/ui/BottomSheet'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
-import { useInvoices, useUploadInvoice, useInvoiceItems, useProcessInvoice, type Invoice, type InvoiceItem } from '../../features/invoices/useInvoices'
+import { useInvoices, useUploadInvoice, useUploadInvoiceZip, useInvoiceItems, useProcessInvoice, type Invoice, type InvoiceItem } from '../../features/invoices/useInvoices'
 import { useUiStore } from '../../stores/uiStore'
 
 const ONBOARDING_DISMISSED_KEY = 'crewinventur-invoice-onboarding-dismissed'
@@ -54,6 +54,7 @@ export function InvoicesPage() {
   const addToast = useUiStore((state) => state.addToast)
   const { data: invoices } = useInvoices()
   const uploadInvoice = useUploadInvoice()
+  const uploadInvoiceZip = useUploadInvoiceZip()
   
   const [showOnboarding, setShowOnboarding] = useState(() => {
     const dismissed = localStorage.getItem(ONBOARDING_DISMISSED_KEY)
@@ -101,6 +102,7 @@ export function InvoicesPage() {
     
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i]
+      const isZip = file.name.toLowerCase().endsWith('.zip')
       setUploadProgress({
         total: fileList.length,
         current: i + 1,
@@ -109,8 +111,14 @@ export function InvoicesPage() {
       })
       
       try {
-        await uploadInvoice.mutateAsync(file)
-        successCount++
+        if (isZip) {
+          const result = await uploadInvoiceZip.mutateAsync(file)
+          successCount += result.created
+          errorCount += result.failed
+        } else {
+          await uploadInvoice.mutateAsync(file)
+          successCount++
+        }
       } catch (error) {
         errorCount++
         console.error(`Upload failed for ${file.name}:`, error)
@@ -119,9 +127,11 @@ export function InvoicesPage() {
     
     setUploadProgress(null)
     
+    const totalProcessed = successCount + errorCount
+
     if (errorCount === 0) {
       addToast(
-        fileList.length === 1
+        successCount === 1
           ? 'Rechnung hochgeladen.'
           : `${successCount} Rechnungen hochgeladen.`,
         'success'
@@ -129,7 +139,7 @@ export function InvoicesPage() {
     } else {
       addToast(
         `${successCount} erfolgreich, ${errorCount} fehlgeschlagen.`,
-        errorCount === fileList.length ? 'error' : 'info'
+        errorCount === totalProcessed && totalProcessed > 0 ? 'error' : 'info'
       )
     }
     
@@ -165,7 +175,7 @@ export function InvoicesPage() {
             >
               <HelpCircle className="h-5 w-5 text-muted-foreground" />
             </button>
-            <Button size="icon" className="rounded-full h-12 w-12 shadow-glow hover:scale-105 active:scale-95 transition-all" onClick={handlePickFile} loading={uploadInvoice.isPending}>
+            <Button size="icon" className="rounded-full h-12 w-12 shadow-glow hover:scale-105 active:scale-95 transition-all" onClick={handlePickFile} loading={uploadInvoice.isPending || uploadInvoiceZip.isPending}>
               <Upload className="h-6 w-6" />
             </Button>
           </div>
@@ -228,7 +238,7 @@ export function InvoicesPage() {
         <input
           ref={fileRef}
           type="file"
-          accept="application/pdf,image/*"
+          accept="application/pdf,image/*,.zip,application/zip,application/x-zip-compressed"
           multiple
           className="hidden"
           onChange={handleFileChange}
