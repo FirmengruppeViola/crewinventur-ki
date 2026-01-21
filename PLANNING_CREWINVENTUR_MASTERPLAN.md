@@ -277,4 +277,5 @@ Wenn es abstürzt, arbeite so weiter:
 ### Letzter Checkpoint
 - Datum: 2026-01-21
 - Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Review-Flow erweitert, OCR-Fallback aktiv.
+- Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Audit-Log-View im Session Summary, OCR-Fallback aktiv.
 - Nächster Schritt: Reorder-Export (CSV/PDF) und Verbrauch/Trend-basierte Vorschlaege.

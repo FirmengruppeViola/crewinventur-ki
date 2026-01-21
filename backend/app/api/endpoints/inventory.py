@@ -646,6 +646,33 @@ def list_session_differences(
     return response.data or []
 
 
+@router.get("/inventory/sessions/{session_id}/audit-logs")
+def list_session_audit_logs(
+    session_id: str,
+    limit: int = 100,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """List audit log entries for a session."""
+    supabase = get_supabase()
+
+    if limit < 1:
+        limit = 1
+    if limit > 500:
+        limit = 500
+
+    _verify_session_access(supabase, session_id, current_user)
+
+    response = (
+        supabase.table("inventory_audit_logs")
+        .select("id, action, user_id, item_id, before_data, after_data, created_at")
+        .eq("session_id", session_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return response.data or []
+
+
 @router.post(
     "/inventory/sessions/{session_id}/items",
     response_model=InventoryItemOut,

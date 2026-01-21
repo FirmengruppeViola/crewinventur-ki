@@ -62,6 +62,16 @@ export type SessionDifference = {
   products?: { name: string; brand: string | null } | null
 }
 
+export type InventoryAuditLog = {
+  id: string
+  action: string
+  user_id: string
+  item_id: string | null
+  before_data: Record<string, unknown> | null
+  after_data: Record<string, unknown> | null
+  created_at: string | null
+}
+
 export type ReorderItem = {
   product_id: string
   product_name: string
@@ -245,6 +255,28 @@ export function useSessionDifferences(sessionId?: string) {
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<SessionDifference[]>(queryKey)
+        : undefined,
+  })
+}
+
+export function useSessionAuditLogs(sessionId?: string, options?: { limit?: number }) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  const limit = options?.limit ?? 100
+  const queryKey = ['inventory', 'audit-logs', sessionId, limit]
+  return useQuery({
+    queryKey,
+    queryFn: () =>
+      apiRequest<InventoryAuditLog[]>(
+        `/api/v1/inventory/sessions/${sessionId}/audit-logs?limit=${limit}`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<InventoryAuditLog[]>(queryKey)
         : undefined,
   })
 }

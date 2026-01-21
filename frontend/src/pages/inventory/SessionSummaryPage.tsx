@@ -15,6 +15,7 @@ import {
   useSessionItems,
   useExportValidation,
   useSessionDifferences,
+  useSessionAuditLogs,
 } from '../../features/inventory/useInventory'
 import { useAuth } from '../../features/auth/useAuth'
 import { apiDownload, apiRequest } from '../../lib/api'
@@ -29,11 +30,19 @@ export function SessionSummaryPage() {
   const { data: session, isLoading } = useInventorySession(sessionId)
   const { data: items } = useSessionItems(sessionId)
   const { data: differences } = useSessionDifferences(sessionId)
+  const { data: auditLogs } = useSessionAuditLogs(sessionId, { limit: 200 })
   const { data: products } = useProducts()
   const { data: validation } = useExportValidation(sessionId, { enabled: isOwner })
 
   const location = useLocationData(session?.location_id)
   const productMap = new Map(products?.map((product) => [product.id, product]) ?? [])
+  const auditActionLabels: Record<string, string> = {
+    create_item: 'Item hinzugefügt',
+    update_item: 'Item aktualisiert',
+    delete_item: 'Item entfernt',
+    complete_session: 'Inventur abgeschlossen',
+    prefill: 'Inventur vorbefüllt',
+  }
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('')
@@ -262,6 +271,29 @@ export function SessionSummaryPage() {
                   </p>
                 </div>
               ))}
+          </div>
+        </Card>
+      ) : null}
+
+      {auditLogs && auditLogs.length > 0 ? (
+        <Card title="Audit-Log">
+          <div className="space-y-3">
+            {auditLogs.map((log) => (
+              <div
+                key={log.id}
+                className="border-b border-border pb-3 last:border-0 last:pb-0"
+              >
+                <p className="font-medium text-foreground">
+                  {auditActionLabels[log.action] || log.action}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {log.created_at
+                    ? new Date(log.created_at).toLocaleString()
+                    : '-'}{' '}
+                  · User {log.user_id.slice(0, 8)}
+                </p>
+              </div>
+            ))}
           </div>
         </Card>
       ) : null}
