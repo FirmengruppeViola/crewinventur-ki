@@ -14,6 +14,7 @@ import {
   useInventorySession,
   useSessionItems,
   useExportValidation,
+  useSessionDifferences,
 } from '../../features/inventory/useInventory'
 import { useAuth } from '../../features/auth/useAuth'
 import { apiDownload, apiRequest } from '../../lib/api'
@@ -27,6 +28,7 @@ export function SessionSummaryPage() {
   const addToast = useUiStore((state) => state.addToast)
   const { data: session, isLoading } = useInventorySession(sessionId)
   const { data: items } = useSessionItems(sessionId)
+  const { data: differences } = useSessionDifferences(sessionId)
   const { data: products } = useProducts()
   const { data: validation } = useExportValidation(sessionId, { enabled: isOwner })
 
@@ -230,6 +232,39 @@ export function SessionSummaryPage() {
           <p className="text-sm text-muted-foreground">Keine Items gefunden.</p>
         )}
       </Card>
+
+      {differences && differences.length > 0 ? (
+        <Card title="Abweichungen zur letzten Inventur">
+          <div className="space-y-3">
+            {differences
+              .filter((diff) => diff.quantity_difference && diff.quantity_difference !== 0)
+              .map((diff) => (
+                <div
+                  key={diff.product_id}
+                  className="border-b border-border pb-3 last:border-0 last:pb-0"
+                >
+                  <p className="font-medium text-foreground">
+                    {diff.products?.brand ? `${diff.products.brand} ` : ''}
+                    {diff.products?.name || 'Unbekannt'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Vorher: {diff.previous_quantity ?? '-'} · Jetzt:{' '}
+                    {diff.current_quantity ?? '-'} · Differenz:{' '}
+                    <span
+                      className={
+                        diff.quantity_difference && diff.quantity_difference > 0
+                          ? 'text-emerald-500'
+                          : 'text-amber-500'
+                      }
+                    >
+                      {diff.quantity_difference ?? '-'}
+                    </span>
+                  </p>
+                </div>
+              ))}
+          </div>
+        </Card>
+      ) : null}
 
       <Modal
         isOpen={showEmailModal}
