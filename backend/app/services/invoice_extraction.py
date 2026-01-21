@@ -33,6 +33,30 @@ def _extract_pdf_text(file_bytes: bytes) -> str:
         logger.warning("pypdf not available for text extraction: %s", exc)
         return ""
 
+
+def _render_pdf_first_page(file_bytes: bytes) -> bytes:
+    try:
+        import pypdfium2 as pdfium
+    except Exception as exc:
+        logger.warning("pypdfium2 not available for PDF rendering: %s", exc)
+        return b""
+
+    try:
+        pdf = pdfium.PdfDocument(file_bytes)
+        if len(pdf) == 0:
+            return b""
+        page = pdf.get_page(0)
+        bitmap = page.render(scale=2.0)
+        pil_image = bitmap.to_pil()
+        buffer = BytesIO()
+        pil_image.save(buffer, format="PNG")
+        page.close()
+        pdf.close()
+        return buffer.getvalue()
+    except Exception as exc:
+        logger.warning("Failed to render PDF for OCR fallback: %s", exc)
+        return b""
+
     try:
         reader = PdfReader(BytesIO(file_bytes))
         chunks: list[str] = []
@@ -172,6 +196,9 @@ def extract_invoice(
     file_bytes = base64.b64decode(file_base64)
     prompt = _build_prompt()
 
+    image_payload: bytes | None = file_bytes
+    image_mime_type = mime_type
+
     if mime_type == "application/pdf":
         text_layer = _extract_pdf_text(file_bytes)
         if text_layer:
@@ -185,13 +212,18 @@ def extract_invoice(
                 "Wenn etwas unklar ist, verifiziere mit dem Layout.\n"
                 "</note>"
             )
+        else:
+            rendered = _render_pdf_first_page(file_bytes)
+            if rendered:
+                image_payload = rendered
+                image_mime_type = "image/png"
 
     # Use HIGH thinking for complex invoice analysis
     data = generate_structured(
         prompt=prompt,
         response_schema=InvoiceExtractionResponse,
-        image_bytes=file_bytes,
-        mime_type=mime_type,
+        image_bytes=image_payload,
+        mime_type=image_mime_type,
         thinking_level=ThinkingLevel.HIGH,
     )
 
