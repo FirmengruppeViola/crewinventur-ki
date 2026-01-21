@@ -62,6 +62,30 @@ export type SessionDifference = {
   products?: { name: string; brand: string | null } | null
 }
 
+export type ReorderItem = {
+  product_id: string
+  product_name: string
+  brand?: string | null
+  size?: string | null
+  unit?: string | null
+  current_quantity: number
+  min_quantity: number
+  deficit: number
+}
+
+export type ReorderOverview = {
+  location_id: string
+  location_name: string | null
+  session_id: string | null
+  completed_at: string | null
+  items: ReorderItem[]
+}
+
+export type ReorderSettingsResponse = {
+  location_id: string
+  items: ReorderItem[]
+}
+
 type SessionInput = {
   location_id: string
   name?: string | null
@@ -222,6 +246,70 @@ export function useSessionDifferences(sessionId?: string) {
       sessionId
         ? queryClient.getQueryData<SessionDifference[]>(queryKey)
         : undefined,
+  })
+}
+
+export function useReorderOverview(
+  locationId?: string,
+  options?: { onlyBelow?: boolean },
+) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  const onlyBelow = options?.onlyBelow ?? true
+  const queryKey = ['reorder', 'overview', locationId, onlyBelow]
+  return useQuery({
+    queryKey,
+    queryFn: () =>
+      apiRequest<ReorderOverview>(
+        `/api/v1/reorder/locations/${locationId}?only_below=${onlyBelow ? 'true' : 'false'}`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && locationId),
+    placeholderData: () =>
+      locationId
+        ? queryClient.getQueryData<ReorderOverview>(queryKey)
+        : undefined,
+  })
+}
+
+export function useReorderSettings(locationId?: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  const queryKey = ['reorder', 'settings', locationId]
+  return useQuery({
+    queryKey,
+    queryFn: () =>
+      apiRequest<ReorderSettingsResponse>(
+        `/api/v1/reorder/locations/${locationId}/settings`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && locationId),
+    placeholderData: () =>
+      locationId
+        ? queryClient.getQueryData<ReorderSettingsResponse>(queryKey)
+        : undefined,
+  })
+}
+
+export function useUpdateReorderSetting() {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: (payload: { location_id: string; product_id: string; min_quantity: number }) =>
+      apiRequest(
+        '/api/v1/reorder/settings',
+        { method: 'POST', body: JSON.stringify(payload) },
+        token,
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reorder', 'overview', variables.location_id] })
+      queryClient.invalidateQueries({ queryKey: ['reorder', 'settings', variables.location_id] })
+    },
   })
 }
 

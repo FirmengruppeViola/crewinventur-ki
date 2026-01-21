@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive, Sparkles, Camera, Edit3, FileText, TrendingUp } from 'lucide-react'
+import { Plus, ChevronRight, CheckCircle2, Clock, Package, Archive, Sparkles, Camera, Edit3, FileText, TrendingUp, ClipboardList } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -16,8 +16,12 @@ import {
   useCreateInventoryBundle,
   useCreateInventorySession,
   useInventorySessions,
+  useReorderOverview,
+  useReorderSettings,
+  useUpdateReorderSetting,
   type InventorySession,
 } from '../../features/inventory/useInventory'
+import { useProducts } from '../../features/products/useProducts'
 import { useUiStore } from '../../stores/uiStore'
 
 const inventoryOnboardingSlides: OnboardingSlide[] = [
@@ -68,21 +72,27 @@ export function InventoryPage() {
   
   const [isOpen, setIsOpen] = useState(false)
   const [isBundleOpen, setIsBundleOpen] = useState(false)
+  const [isReorderOpen, setIsReorderOpen] = useState(false)
   const [selectedCompletedSession, setSelectedCompletedSession] = useState<InventorySession | null>(null)
   
   const [locationId, setLocationId] = useState('')
   const [sessionName, setSessionName] = useState('')
   const [bundleName, setBundleName] = useState('')
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([])
+  const [reorderLocationId, setReorderLocationId] = useState('')
+  const [reorderProductId, setReorderProductId] = useState('')
+  const [reorderMinQty, setReorderMinQty] = useState('')
   
   const openCreate = Boolean(
     (routeLocation.state as { openCreate?: boolean } | null)?.openCreate
   )
   
   const { data: locations } = useLocations()
+  const { data: products } = useProducts()
   const { data: sessions } = useInventorySessions()
   const createSession = useCreateInventorySession()
   const createBundle = useCreateInventoryBundle()
+  const updateReorderSetting = useUpdateReorderSetting()
   
   const locationOptions = [
     { label: 'Location wählen', value: '' },
@@ -92,10 +102,34 @@ export function InventoryPage() {
   const locationMap = useMemo(() => {
     return new Map(locations?.map((location) => [location.id, location]) ?? [])
   }, [locations])
+
+  useEffect(() => {
+    if (!isReorderOpen) return
+    if (reorderLocationId || !locations || locations.length === 0) return
+    setReorderLocationId(locations[0].id)
+  }, [isReorderOpen, locations, reorderLocationId])
   
   const sessionsList = sessions ?? []
   const activeSessions = sessionsList.filter((s) => s.status !== 'completed')
   const completedSessions = sessionsList.filter((s) => s.status === 'completed')
+
+  const { data: reorderOverview, isLoading: reorderLoading } = useReorderOverview(
+    reorderLocationId,
+    { onlyBelow: true },
+  )
+  const { data: reorderSettings, isLoading: reorderSettingsLoading } = useReorderSettings(
+    reorderLocationId,
+  )
+
+  const productOptions = useMemo(() => {
+    return [
+      { label: 'Produkt wählen', value: '' },
+      ...(products?.map((product) => ({
+        label: `${product.brand ? product.brand + ' ' : ''}${product.name}${product.size ? ` · ${product.size}` : ''}`,
+        value: product.id,
+      })) ?? []),
+    ]
+  }, [products])
   
   useEffect(() => {
     if (!openCreate) return
@@ -155,6 +189,37 @@ export function InventoryPage() {
       )
     }
   }
+
+  const handleSaveReorderSetting = async () => {
+    if (!reorderLocationId) {
+      addToast('Bitte eine Location wählen.', 'error')
+      return
+    }
+    if (!reorderProductId) {
+      addToast('Bitte ein Produkt wählen.', 'error')
+      return
+    }
+    const minQty = Number(reorderMinQty)
+    if (Number.isNaN(minQty)) {
+      addToast('Bitte eine gültige Mindestmenge angeben.', 'error')
+      return
+    }
+    try {
+      await updateReorderSetting.mutateAsync({
+        location_id: reorderLocationId,
+        product_id: reorderProductId,
+        min_quantity: minQty,
+      })
+      addToast('Mindestbestand gespeichert.', 'success')
+      setReorderProductId('')
+      setReorderMinQty('')
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Speichern fehlgeschlagen.',
+        'error',
+      )
+    }
+  }
   
   return (
     <div className="space-y-8 pb-40">
@@ -171,6 +236,14 @@ export function InventoryPage() {
                  <Archive className="h-5 w-5" />
               </Button>
            </Link>
+           <Button
+             variant="outline"
+             size="icon"
+             className="rounded-full h-12 w-12 hover:scale-105 transition-transform"
+             onClick={() => setIsReorderOpen(true)}
+           >
+             <TrendingUp className="h-5 w-5" />
+           </Button>
            <Button size="icon" className="rounded-full h-12 w-12 shadow-glow hover:scale-105 active:scale-95 transition-all" onClick={() => setIsOpen(true)}>
              <Plus className="h-6 w-6" />
            </Button>
@@ -228,6 +301,175 @@ export function InventoryPage() {
           </div>
         )}
       </section>
+
+      <BottomSheet isOpen={isReorderOpen} onClose={() => setIsReorderOpen(false)} placement="center">
+        <div className="space-y-6 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Nachbestellen</h2>
+              <p className="text-sm text-muted-foreground">
+                Mindestbestände verwalten und Engpässe erkennen.
+              </p>
+            </div>
+          </div>
+
+          <Select
+            label="Location"
+            options={locationOptions}
+            name="reorder-location"
+            value={reorderLocationId}
+            onChange={(event) => setReorderLocationId(event.target.value)}
+          />
+
+          <Card className="space-y-4 p-4 border-primary/20 bg-primary/5">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Mindestbestand setzen</h3>
+              <p className="text-xs text-muted-foreground">
+                Lege fest, ab wann Produkte auf die Nachbestellliste kommen.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Select
+                label="Produkt"
+                options={productOptions}
+                name="reorder-product"
+                value={reorderProductId}
+                onChange={(event) => setReorderProductId(event.target.value)}
+              />
+              <Input
+                label="Mindestmenge"
+                type="number"
+                step="0.01"
+                value={reorderMinQty}
+                onChange={(event) => setReorderMinQty(event.target.value)}
+                placeholder="z. B. 4"
+              />
+              <Button
+                onClick={handleSaveReorderSetting}
+                loading={updateReorderSetting.isPending}
+              >
+                Speichern
+              </Button>
+            </div>
+          </Card>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Nachbestellliste
+              </h3>
+              {reorderOverview?.completed_at && (
+                <span className="text-xs text-muted-foreground">
+                  Letzte Inventur: {new Date(reorderOverview.completed_at).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+
+            {reorderLoading ? (
+              <div className="rounded-2xl border border-border/50 p-6 text-center text-sm text-muted-foreground">
+                Lade Nachbestellliste...
+              </div>
+            ) : reorderOverview?.items?.length ? (
+              <div className="space-y-3">
+                {reorderOverview.items.map((item) => (
+                  <Card key={item.product_id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {item.brand ? `${item.brand} ` : ''}
+                          {item.product_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Bestand: {item.current_quantity} {item.unit || ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Mindestbestand</p>
+                        <p className="font-semibold text-foreground">
+                          {item.min_quantity} {item.unit || ''}
+                        </p>
+                        <p className="text-xs text-destructive mt-1">
+                          Fehlmenge: {item.deficit}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border/50 p-6 text-center text-sm text-muted-foreground">
+                Keine Produkte unter Mindestbestand.
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Mindestbestände
+            </h3>
+            {reorderSettingsLoading ? (
+              <div className="rounded-2xl border border-border/50 p-6 text-center text-sm text-muted-foreground">
+                Lade Mindestbestände...
+              </div>
+            ) : reorderSettings?.items?.length ? (
+              <div className="space-y-3">
+                {reorderSettings.items.map((item) => (
+                  <Card key={item.product_id} className="p-4">
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {item.brand ? `${item.brand} ` : ''}
+                          {item.product_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Bestand: {item.current_quantity} {item.unit || ''}
+                        </p>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <Input
+                          label="Mindestmenge"
+                          type="number"
+                          step="0.01"
+                          defaultValue={item.min_quantity}
+                          onBlur={(event) => {
+                            const nextValue = Number(event.target.value)
+                            if (Number.isNaN(nextValue)) return
+                            updateReorderSetting.mutate({
+                              location_id: reorderLocationId,
+                              product_id: item.product_id,
+                              min_quantity: nextValue,
+                            })
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            updateReorderSetting.mutate({
+                              location_id: reorderLocationId,
+                              product_id: item.product_id,
+                              min_quantity: 0,
+                            })
+                          }
+                        >
+                          Entfernen
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border/50 p-6 text-center text-sm text-muted-foreground">
+                Keine Mindestbestände gesetzt.
+              </div>
+            )}
+          </div>
+        </div>
+      </BottomSheet>
       
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">

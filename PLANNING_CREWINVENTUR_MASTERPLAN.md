@@ -276,5 +276,5 @@ Wenn es abstürzt, arbeite so weiter:
 
 ### Letzter Checkpoint
 - Datum: 2026-01-21
-- Was wurde verifiziert/entschieden: ZIP-Upload für Rechnungen, Alias-Lernen per Match, Bulk-Matching + Undo im Review ergänzt, Textlayer-Extraktion + PDF-Rendering-Fallback (OCR) in der KI-Rechnungserkennung.
-- Nächster Schritt: Review-Flow für KI-Zuordnungen verfeinern (z. B. bulk undo/accept) und Match-Qualität monitoring.
+- Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Review-Flow erweitert, OCR-Fallback aktiv.
+- Nächster Schritt: Reorder-Export (CSV/PDF) und Verbrauch/Trend-basierte Vorschlaege.
