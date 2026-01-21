@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 from typing import Any
 
+from pydantic import BaseModel
+
 import anyio
 
 from fastapi import (
@@ -42,6 +44,15 @@ ALLOWED_INVOICE_EXTENSIONS = {
     ".tif",
     ".tiff",
 }
+
+
+class BulkMatchItem(BaseModel):
+    item_id: str
+    product_id: str
+
+
+class BulkMatchRequest(BaseModel):
+    matches: list[BulkMatchItem]
 
 
 def _guess_mime_type(file_name: str) -> str:
@@ -735,6 +746,183 @@ def match_invoice_item(
         logger.warning("Failed to store invoice alias: %s", exc)
 
     return updated.data[0] if updated.data else item
+
+
+@router.post("/invoices/{invoice_id}/items/{item_id}/unmatch")
+def unmatch_invoice_item(
+    invoice_id: str,
+    item_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    require_owner(current_user)
+    supabase = get_supabase()
+
+    item_resp = (
+        supabase.table("invoice_items")
+        .select("id, raw_text")
+        .eq("id", item_id)
+        .eq("invoice_id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    item = item_resp.data[0] if item_resp.data else None
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice item not found",
+        )
+
+    updated = (
+        supabase.table("invoice_items")
+        .update(
+            {
+                "matched_product_id": None,
+                "match_confidence": None,
+                "is_manually_matched": False,
+            }
+        )
+        .eq("id", item_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+
+    try:
+        invoice_resp = (
+            supabase.table("invoices")
+            .select("supplier_name")
+            .eq("id", invoice_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+        invoice_data = invoice_resp.data[0] if invoice_resp.data else {}
+        normalized_raw = _normalize_alias_text(item.get("raw_text"))
+        supplier_key = _normalize_alias_text(invoice_data.get("supplier_name"))
+        if normalized_raw:
+            (
+                supabase.table("invoice_item_aliases")
+                .delete()
+                .eq("user_id", current_user.id)
+                .eq("supplier_name", supplier_key)
+                .eq("normalized_text", normalized_raw)
+                .execute()
+            )
+    except Exception as exc:
+        logger.warning("Failed to remove invoice alias: %s", exc)
+
+    return updated.data[0] if updated.data else item
+
+
+@router.post("/invoices/{invoice_id}/items/bulk-match")
+def bulk_match_invoice_items(
+    invoice_id: str,
+    payload: BulkMatchRequest,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    require_owner(current_user)
+    supabase = get_supabase()
+
+    if not payload.matches:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No matches provided",
+        )
+
+    invoice_resp = (
+        supabase.table("invoices")
+        .select("id, supplier_name, invoice_date")
+        .eq("id", invoice_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    invoice_data = invoice_resp.data[0] if invoice_resp.data else None
+    if not isinstance(invoice_data, dict):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+
+    item_ids = [match.item_id for match in payload.matches if match.item_id]
+    product_ids = [match.product_id for match in payload.matches if match.product_id]
+
+    items_resp = (
+        supabase.table("invoice_items")
+        .select("id, raw_text, unit_price")
+        .eq("invoice_id", invoice_id)
+        .eq("user_id", current_user.id)
+        .in_("id", item_ids)
+        .execute()
+    )
+    items = items_resp.data or []
+    items_by_id = {row.get("id"): row for row in items if isinstance(row, dict)}
+
+    products_resp = (
+        supabase.table("products")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .in_("id", product_ids)
+        .execute()
+    )
+    allowed_products = {
+        row.get("id") for row in (products_resp.data or []) if isinstance(row, dict)
+    }
+
+    updated_count = 0
+    errors: list[dict[str, str]] = []
+
+    supplier_key = _normalize_alias_text(invoice_data.get("supplier_name"))
+
+    for match in payload.matches:
+        item_id = match.item_id
+        product_id = match.product_id
+
+        item = items_by_id.get(item_id)
+        if not item:
+            errors.append({"item_id": item_id, "error": "Item not found"})
+            continue
+
+        if product_id not in allowed_products:
+            errors.append({"item_id": item_id, "error": "Product not found"})
+            continue
+
+        supabase.table("invoice_items").update(
+            {
+                "matched_product_id": product_id,
+                "match_confidence": 1.0,
+                "is_manually_matched": True,
+            }
+        ).eq("id", item_id).eq("user_id", current_user.id).execute()
+
+        unit_price = item.get("unit_price")
+        if unit_price is not None:
+            supabase.table("products").update(
+                {
+                    "last_price": unit_price,
+                    "last_supplier": invoice_data.get("supplier_name"),
+                    "last_price_date": invoice_data.get("invoice_date")
+                    or datetime.now(timezone.utc).date().isoformat(),
+                }
+            ).eq("id", product_id).eq("user_id", current_user.id).execute()
+
+        normalized_raw = _normalize_alias_text(item.get("raw_text"))
+        if normalized_raw:
+            supabase.table("invoice_item_aliases").upsert(
+                {
+                    "user_id": current_user.id,
+                    "supplier_name": supplier_key,
+                    "raw_text": item.get("raw_text") or "",
+                    "normalized_text": normalized_raw,
+                    "product_id": product_id,
+                },
+                on_conflict="user_id,supplier_name,normalized_text",
+            ).execute()
+
+        updated_count += 1
+
+    return {
+        "updated": updated_count,
+        "requested": len(payload.matches),
+        "errors": errors,
+    }
 
 
 @router.post("/invoices/{invoice_id}/auto-create-products")

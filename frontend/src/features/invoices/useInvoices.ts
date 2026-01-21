@@ -40,6 +40,12 @@ export type InvoiceZipUploadResult = {
   invoice_ids?: string[]
 }
 
+export type BulkMatchResult = {
+  updated: number
+  requested: number
+  errors?: Array<{ item_id: string; error: string }>
+}
+
 export function useInvoices() {
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -182,6 +188,42 @@ export function useMatchInvoiceItem(invoiceId: string, itemId: string) {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'items'] })
+    },
+  })
+}
+
+export function useUnmatchInvoiceItem(invoiceId: string, itemId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<InvoiceItem>(
+        `/api/v1/invoices/${invoiceId}/items/${itemId}/unmatch`,
+        { method: 'POST' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'items'] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'unmatched-count'] })
+    },
+  })
+}
+
+export function useBulkMatchInvoiceItems(invoiceId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: (matches: Array<{ item_id: string; product_id: string }>) =>
+      apiRequest<BulkMatchResult>(
+        `/api/v1/invoices/${invoiceId}/items/bulk-match`,
+        { method: 'POST', body: JSON.stringify({ matches }) },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'items'] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', invoiceId, 'unmatched-count'] })
     },
   })
 }

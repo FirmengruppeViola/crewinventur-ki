@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus, Wand2 } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, Sparkles, Plus, Wand2, RotateCcw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -9,8 +9,10 @@ import { Select } from '../../components/ui/Select'
 import {
   useInvoiceItems,
   useMatchInvoiceItem,
+  useUnmatchInvoiceItem,
   useAutoCreateProducts,
   useSmartMatchInvoice,
+  useBulkMatchInvoiceItems,
 } from '../../features/invoices/useInvoices'
 import { useProducts } from '../../features/products/useProducts'
 import { useUiStore } from '../../stores/uiStore'
@@ -20,14 +22,25 @@ type MatchRowProps = {
   itemId: string
   productName: string
   defaultMatch: string | null
+  isSelected: boolean
+  onToggleSelect: () => void
   options: { label: string; value: string }[]
 }
 
-function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: MatchRowProps) {
+function MatchRow({
+  invoiceId,
+  itemId,
+  productName,
+  defaultMatch,
+  isSelected,
+  onToggleSelect,
+  options,
+}: MatchRowProps) {
   const [selected, setSelected] = useState(defaultMatch ?? '')
   const [isSaved, setIsSaved] = useState(false)
   const addToast = useUiStore((state) => state.addToast)
   const matchItem = useMatchInvoiceItem(invoiceId, itemId)
+  const unmatchItem = useUnmatchInvoiceItem(invoiceId, itemId)
 
   const handleMatch = async () => {
     if (!selected) return
@@ -44,12 +57,34 @@ function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: Mat
     }
   }
 
+  const handleUnmatch = async () => {
+    try {
+      await unmatchItem.mutateAsync()
+      addToast('Match entfernt.', 'success')
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Entfernen fehlgeschlagen.',
+        'error',
+      )
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/20">
       <div className="flex items-start justify-between">
-         <div className="flex-1">
+         <div className="flex items-start gap-3 flex-1">
+            <label className="mt-1 flex items-center">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={onToggleSelect}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+            </label>
+            <div className="flex-1">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Rechnungsposition</p>
             <p className="text-base font-medium text-foreground mt-1">{productName}</p>
+            </div>
          </div>
          {defaultMatch && !isSaved && (
             <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-500 uppercase">Gematcht</span>
@@ -81,6 +116,18 @@ function MatchRow({ invoiceId, itemId, productName, defaultMatch, options }: Mat
         >
           <Save className="h-4 w-4" />
         </Button>
+        {defaultMatch && (
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={handleUnmatch}
+            loading={unmatchItem.isPending}
+            className="mb-[1px]"
+            title="Match entfernen"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -94,6 +141,9 @@ export function InvoiceMatchingPage() {
   const { data: products } = useProducts()
   const autoCreate = useAutoCreateProducts(invoiceId)
   const smartMatch = useSmartMatchInvoice(invoiceId)
+  const bulkMatch = useBulkMatchInvoiceItems(invoiceId)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkProductId, setBulkProductId] = useState('')
 
   const options = useMemo(() => {
     return (
@@ -108,6 +158,45 @@ export function InvoiceMatchingPage() {
   const unmatchedCount = useMemo(() => {
     return items?.filter((item) => !item.matched_product_id).length || 0
   }, [items])
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (!items) return new Set()
+      const next = new Set<string>()
+      for (const item of items) {
+        if (item.id && prev.has(item.id)) {
+          next.add(item.id)
+        }
+      }
+      return next
+    })
+  }, [items])
+
+  const selectedCount = selectedIds.size
+
+  const toggleSelect = (itemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
+  }
+
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+    setBulkProductId('')
+  }
+
+  const selectUnmatched = () => {
+    if (!items) return
+    setSelectedIds(
+      new Set(items.filter((item) => !item.matched_product_id).map((item) => item.id)),
+    )
+  }
 
   const handleAutoCreate = async () => {
     try {
@@ -139,6 +228,29 @@ export function InvoiceMatchingPage() {
       addToast(
         error instanceof Error ? error.message : 'Smart Match fehlgeschlagen',
         'error'
+      )
+    }
+  }
+
+  const handleBulkMatch = async () => {
+    if (!bulkProductId || selectedIds.size === 0) return
+    try {
+      const matches = Array.from(selectedIds).map((itemId) => ({
+        item_id: itemId,
+        product_id: bulkProductId,
+      }))
+      const result = await bulkMatch.mutateAsync(matches)
+      addToast(
+        result.updated > 0
+          ? `${result.updated} Zuordnungen gespeichert`
+          : 'Keine Zuordnungen gespeichert',
+        result.updated > 0 ? 'success' : 'info',
+      )
+      clearSelection()
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Bulk-Match fehlgeschlagen',
+        'error',
       )
     }
   }
@@ -202,6 +314,47 @@ export function InvoiceMatchingPage() {
         </Card>
       )}
 
+      {selectedCount > 0 && (
+        <Card className="p-4 border-border bg-secondary/30">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  {selectedCount} Positionen ausgewählt
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Weise alle ausgewählten Positionen einem Produkt zu.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>
+                Auswahl löschen
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[200px]">
+                <Select
+                  label="Produkt für Bulk-Match"
+                  options={[{ label: 'Produkt wählen...', value: '' }, ...options]}
+                  name="bulk-match-product"
+                  value={bulkProductId}
+                  onChange={(event) => setBulkProductId(event.target.value)}
+                />
+              </div>
+              <Button
+                onClick={handleBulkMatch}
+                loading={bulkMatch.isPending}
+                disabled={!bulkProductId || bulkMatch.isPending}
+              >
+                Zuordnen
+              </Button>
+              <Button variant="secondary" onClick={selectUnmatched}>
+                Nur offene auswählen
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="space-y-4">
         {items && items.length > 0 ? (
           items.map((item) => (
@@ -211,6 +364,8 @@ export function InvoiceMatchingPage() {
               itemId={item.id}
               productName={item.product_name}
               defaultMatch={item.matched_product_id}
+              isSelected={selectedIds.has(item.id)}
+              onToggleSelect={() => toggleSelect(item.id)}
               options={options}
             />
           ))
@@ -229,4 +384,3 @@ export function InvoiceMatchingPage() {
     </div>
   )
 }
-
