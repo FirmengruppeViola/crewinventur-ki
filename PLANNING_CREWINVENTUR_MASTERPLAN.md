@@ -269,13 +269,12 @@ Wenn es abstürzt, arbeite so weiter:
 ### Aktueller Fokus
 - [ ] Phase 1: Fundament stabilisieren
 - [ ] Phase 2: Kern-Inventur UX
-- [ ] Phase 3: Rechnungimport → Preise
+- [x] Phase 3: Rechnungimport → Preise
 - [ ] Phase 4: Exporte/Steuerberater
 - [ ] Phase 5: Multi-Location & Team
 - [ ] Phase 6: Reorder
 
 ### Letzter Checkpoint
-- Datum:
-- Was wurde verifiziert/entschieden:
-- Nächster Schritt:
-
+- Datum: 2026-01-21
+- Was wurde verifiziert/entschieden: ZIP-Upload für Rechnungen, Alias-Lernen per Match, DB-Migrationen für Aliases + AI-Normalisierung ergänzt.
+- Nächster Schritt: Alias-Matching im Review verbessern (Bulk/Undo) und ggf. OCR/Textlayer-Fallback evaluieren.

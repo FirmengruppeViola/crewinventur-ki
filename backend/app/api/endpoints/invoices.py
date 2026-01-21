@@ -5,6 +5,7 @@ from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
 import anyio
@@ -54,6 +55,12 @@ def _guess_mime_type(file_name: str) -> str:
 
 def _is_allowed_invoice_file(file_name: str) -> bool:
     return file_name.lower().endswith(tuple(ALLOWED_INVOICE_EXTENSIONS))
+
+
+def _normalize_alias_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", value).strip().lower()
 
 
 def _process_invoice_background(invoice_id: str, user_id: str) -> None:
@@ -155,6 +162,42 @@ def _now_iso():
 def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
     items = []
     product_updates = {}
+    alias_map: dict[str, str] = {}
+
+    supplier_key = _normalize_alias_text(getattr(extraction, "supplier_name", None))
+    try:
+        alias_resp = (
+            supabase.table("invoice_item_aliases")
+            .select("normalized_text, product_id")
+            .eq("user_id", user_id)
+            .eq("supplier_name", supplier_key)
+            .execute()
+        )
+        alias_rows = alias_resp.data or []
+        for row in alias_rows:
+            if isinstance(row, dict):
+                normalized = row.get("normalized_text")
+                product_id = row.get("product_id")
+                if normalized and product_id:
+                    alias_map[normalized] = product_id
+
+        if supplier_key:
+            global_alias_resp = (
+                supabase.table("invoice_item_aliases")
+                .select("normalized_text, product_id")
+                .eq("user_id", user_id)
+                .eq("supplier_name", "")
+                .execute()
+            )
+            global_rows = global_alias_resp.data or []
+            for row in global_rows:
+                if isinstance(row, dict):
+                    normalized = row.get("normalized_text")
+                    product_id = row.get("product_id")
+                    if normalized and product_id and normalized not in alias_map:
+                        alias_map[normalized] = product_id
+    except Exception as exc:
+        logger.warning("Alias lookup failed: %s", exc)
 
     for item in extraction.items:
         raw_text = item.description
@@ -164,8 +207,14 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
 
         matched = None
         match_confidence = None
+        matched_product_id = None
 
-        if normalized_name:
+        normalized_raw = _normalize_alias_text(raw_text)
+        if normalized_raw and normalized_raw in alias_map:
+            matched_product_id = alias_map[normalized_raw]
+            match_confidence = 0.95
+
+        if not matched_product_id and normalized_name:
             first_word = normalized_name.split()[0] if normalized_name.split() else ""
             matched = (
                 supabase.table("products")
@@ -186,7 +235,7 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
                     matched.data = [matched_brands[0]]
                     match_confidence = 0.9
 
-        if not matched or not matched.data:
+        if not matched_product_id and (not matched or not matched.data):
             matched = (
                 supabase.table("products")
                 .select("id")
@@ -197,7 +246,9 @@ def _process_invoice_items(supabase, invoice_id: str, user_id: str, extraction):
             )
             match_confidence = 0.7 if matched.data else None
 
-        matched_product_id = matched.data[0]["id"] if matched.data else None
+        if not matched_product_id:
+            matched_product_id = matched.data[0]["id"] if matched and matched.data else None
+
         if matched_product_id and not match_confidence:
             match_confidence = 0.8
 
@@ -665,6 +716,23 @@ def match_invoice_item(
                 or datetime.now(timezone.utc).date().isoformat(),
             }
         ).eq("id", product_id).eq("user_id", current_user.id).execute()
+
+    try:
+        normalized_raw = _normalize_alias_text(item.get("raw_text"))
+        supplier_key = _normalize_alias_text(invoice_data.get("supplier_name"))
+        if normalized_raw:
+            supabase.table("invoice_item_aliases").upsert(
+                {
+                    "user_id": current_user.id,
+                    "supplier_name": supplier_key,
+                    "raw_text": item.get("raw_text") or "",
+                    "normalized_text": normalized_raw,
+                    "product_id": product_id,
+                },
+                on_conflict="user_id,supplier_name,normalized_text",
+            ).execute()
+    except Exception as exc:
+        logger.warning("Failed to store invoice alias: %s", exc)
 
     return updated.data[0] if updated.data else item
 
