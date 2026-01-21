@@ -519,6 +519,112 @@ def list_session_items(
     return response.data or []
 
 
+@router.post("/inventory/sessions/{session_id}/prefill")
+def prefill_session_items(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """Pre-fill a session with products from the previous completed session."""
+    supabase = get_supabase()
+
+    session = _verify_session_access(supabase, session_id, current_user)
+    if session.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is not active",
+        )
+
+    existing = (
+        supabase.table("inventory_items")
+        .select("id")
+        .eq("session_id", session_id)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Session already has items",
+        )
+
+    previous_id = session.get("previous_session_id")
+    if not previous_id:
+        previous = (
+            supabase.table("inventory_sessions")
+            .select("id, completed_at")
+            .eq("user_id", current_user.effective_owner_id)
+            .eq("location_id", session["location_id"])
+            .eq("status", "completed")
+            .order("completed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        previous_id = previous.data[0]["id"] if previous.data else None
+
+    if not previous_id:
+        return {"inserted": 0}
+
+    prev_items = (
+        supabase.table("inventory_items")
+        .select("product_id, unit_price")
+        .eq("session_id", previous_id)
+        .execute()
+    ).data or []
+
+    if not prev_items:
+        return {"inserted": 0}
+
+    product_ids = [item.get("product_id") for item in prev_items if item.get("product_id")]
+    product_prices: dict[str, float] = {}
+    if product_ids:
+        products_resp = (
+            supabase.table("products")
+            .select("id, last_price")
+            .in_("id", product_ids)
+            .execute()
+        )
+        for product in products_resp.data or []:
+            pid = product.get("id")
+            if pid:
+                product_prices[str(pid)] = product.get("last_price") or 0
+
+    rows = []
+    for item in prev_items:
+        product_id = item.get("product_id")
+        if not product_id:
+            continue
+        unit_price = item.get("unit_price")
+        if unit_price in (None, 0):
+            unit_price = product_prices.get(str(product_id)) or None
+        rows.append(
+            {
+                "session_id": session_id,
+                "product_id": product_id,
+                "full_quantity": 0,
+                "partial_quantity": 0,
+                "partial_fill_percent": 0,
+                "quantity": 0,
+                "unit_price": unit_price,
+            }
+        )
+
+    if not rows:
+        return {"inserted": 0}
+
+    insert_resp = supabase.table("inventory_items").insert(rows).execute()
+    _recalculate_totals(supabase, session_id)
+    _log_inventory_action(
+        supabase,
+        action="prefill",
+        user_id=current_user.id,
+        session_id=session_id,
+        item_id=None,
+        before_data=None,
+        after_data={"count": len(insert_resp.data or rows), "previous_session_id": previous_id},
+    )
+    return {"inserted": len(insert_resp.data or rows), "previous_session_id": previous_id}
+
+
 @router.get("/inventory/sessions/{session_id}/differences")
 def list_session_differences(
     session_id: str,

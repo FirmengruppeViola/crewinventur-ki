@@ -279,6 +279,24 @@ export function useDeleteSessionItem(itemId: string, sessionId: string) {
   })
 }
 
+export function usePrefillSessionItems(sessionId: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<{ inserted: number; previous_session_id?: string | null }>(
+        `/api/v1/inventory/sessions/${sessionId}/prefill`,
+        { method: 'POST' },
+        token,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'items', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'sessions', sessionId] })
+    },
+  })
+}
+
 export function useInventoryBundles() {
   const queryClient = useQueryClient()
   const { session } = useAuth()

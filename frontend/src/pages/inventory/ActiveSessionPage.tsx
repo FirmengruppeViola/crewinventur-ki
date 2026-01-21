@@ -16,6 +16,7 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { SessionSkeleton } from '../../components/ui/Skeleton'
 import { BottomSheet } from '../../components/ui/BottomSheet'
+import { Modal } from '../../components/ui/Modal'
 import { InventoryItemAccordion } from '../../components/inventory/InventoryItemAccordion'
 import { useLocation as useLocationData } from '../../features/locations/useLocations'
 import { useProducts } from '../../features/products/useProducts'
@@ -25,6 +26,8 @@ import {
   useCompleteInventorySession,
   useInventorySession,
   useSessionItems,
+  useExportValidation,
+  usePrefillSessionItems,
 } from '../../features/inventory/useInventory'
 import { useAuth } from '../../features/auth/useAuth'
 import { useQueryClient } from '@tanstack/react-query'
@@ -36,7 +39,7 @@ export function ActiveSessionPage() {
   const navigate = useViewNavigate()
   const addToast = useUiStore((state) => state.addToast)
   const queryClient = useQueryClient()
-  const { session: authSession } = useAuth()
+  const { session: authSession, isOwner } = useAuth()
   const sessionId = id ?? ''
  
   const { data: session, isLoading } = useInventorySession(sessionId)
@@ -45,6 +48,8 @@ export function ActiveSessionPage() {
   const { data: categories } = useCategories()
   const completeSession = useCompleteInventorySession(sessionId)
   const addItem = useAddSessionItem(sessionId)
+  const prefillSession = usePrefillSessionItems(sessionId)
+  const { data: validation } = useExportValidation(sessionId, { enabled: isOwner })
  
   const location = useLocationData(session?.location_id)
  
@@ -52,6 +57,7 @@ export function ActiveSessionPage() {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [showManualAdd, setShowManualAdd] = useState(false)
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
  
   const productOptions = useMemo(() => {
     return (
@@ -115,7 +121,20 @@ export function ActiveSessionPage() {
     }
   }
  
-  const handleComplete = async () => {
+  const handleComplete = async (force: boolean = false) => {
+    if (!items || items.length === 0) {
+      addToast('Keine Produkte erfasst.', 'info')
+      return
+    }
+    if (
+      isOwner &&
+      validation &&
+      !validation.valid &&
+      !force
+    ) {
+      setShowCompleteModal(true)
+      return
+    }
     try {
       await completeSession.mutateAsync()
       navigate(`/inventory/sessions/${sessionId}/summary`)
@@ -307,6 +326,29 @@ export function ActiveSessionPage() {
             <p className="text-muted-foreground mt-2">
               Nutze die Scan-Buttons um Produkte zu erfassen
             </p>
+            <Button
+              className="mt-5"
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const result = await prefillSession.mutateAsync()
+                  addToast(
+                    result.inserted > 0
+                      ? `${result.inserted} Produkte übernommen`
+                      : 'Keine Produkte gefunden',
+                    'success',
+                  )
+                } catch (error) {
+                  addToast(
+                    error instanceof Error ? error.message : 'Übernahme fehlgeschlagen',
+                    'error',
+                  )
+                }
+              }}
+              loading={prefillSession.isPending}
+            >
+              Letzte Inventur übernehmen
+            </Button>
           </div>
         )}
  
@@ -378,6 +420,39 @@ export function ActiveSessionPage() {
           </Button>
         </div>
       </BottomSheet>
+
+      <Modal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        title="Preise fehlen"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {validation?.missing_count ?? 0} Produkte haben keinen Preis. Für den Export
+            sollten Preise nachgetragen werden.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowCompleteModal(false)
+                navigate(`/inventory/sessions/${sessionId}/price-review`)
+              }}
+            >
+              Preise nachtragen
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setShowCompleteModal(false)
+                await handleComplete(true)
+              }}
+            >
+              Trotzdem abschließen
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
