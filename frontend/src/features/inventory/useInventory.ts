@@ -54,6 +54,14 @@ export type BundleSession = {
   total_value: number
 }
 
+export type SessionDifference = {
+  product_id: string
+  previous_quantity: number | null
+  current_quantity: number | null
+  quantity_difference: number | null
+  products?: { name: string; brand: string | null } | null
+}
+
 type SessionInput = {
   location_id: string
   name?: string | null
@@ -192,6 +200,27 @@ export function useSessionItems(sessionId?: string) {
     placeholderData: () =>
       sessionId
         ? queryClient.getQueryData<InventoryItem[]>(queryKey)
+        : undefined,
+  })
+}
+
+export function useSessionDifferences(sessionId?: string) {
+  const queryClient = useQueryClient()
+  const { session } = useAuth()
+  const token = session?.access_token
+  const queryKey = ['inventory', 'differences', sessionId]
+  return useQuery({
+    queryKey,
+    queryFn: () =>
+      apiRequest<SessionDifference[]>(
+        `/api/v1/inventory/sessions/${sessionId}/differences`,
+        { method: 'GET' },
+        token,
+      ),
+    enabled: Boolean(token && sessionId),
+    placeholderData: () =>
+      sessionId
+        ? queryClient.getQueryData<SessionDifference[]>(queryKey)
         : undefined,
   })
 }

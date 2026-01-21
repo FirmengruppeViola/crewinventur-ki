@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     SMTP_USE_SSL: bool = True
     SMTP_VERIFY_CERT: bool = True
 
+    # DATEV export defaults
+    DATEV_DEFAULT_ACCOUNT: str = "4000"
+    DATEV_COUNTER_ACCOUNT: str = "1200"
+    DATEV_DELIMITER: str = ";"
+
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:

@@ -18,11 +18,15 @@ export function BundleSummaryPage() {
   const { data: bundle, isLoading } = useInventoryBundle(bundleId)
   const { data: bundleSessions } = useInventoryBundleSessions(bundleId)
 
-  const downloadBundle = async () => {
+  const downloadBundle = async (format: 'pdf' | 'datev') => {
+    const filename =
+      format === 'datev'
+        ? `inventory-bundle-${bundleId}-datev.csv`
+        : `inventory-bundle-${bundleId}.pdf`
     try {
       await apiDownload(
-        `/api/v1/export/bundle/${bundleId}/pdf`,
-        `inventory-bundle-${bundleId}.pdf`,
+        `/api/v1/export/bundle/${bundleId}/${format}`,
+        filename,
         session?.access_token,
       )
     } catch (error) {
@@ -56,9 +60,14 @@ export function BundleSummaryPage() {
           Gesamtwert: <span className="text-emerald-500">{Number(bundle.total_value).toFixed(2)} EUR</span>
         </p>
         <div className="mt-4">
-          <Button variant="outline" onClick={downloadBundle}>
-            PDF exportieren
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => downloadBundle('pdf')}>
+              PDF exportieren
+            </Button>
+            <Button variant="outline" onClick={() => downloadBundle('datev')}>
+              DATEV CSV
+            </Button>
+          </div>
         </div>
       </Card>
 

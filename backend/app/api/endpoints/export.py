@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 from io import StringIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -154,6 +155,57 @@ def _build_summary_csv(
     return output.getvalue()
 
 
+def _format_date_value(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        cleaned = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(cleaned).strftime("%Y%m%d")
+    except Exception:
+        return value[:10].replace("-", "")
+
+
+def _build_datev_csv(
+    session: dict,
+    location: dict,
+    category_totals: dict,
+    account: str,
+    counter_account: str,
+    delimiter: str = ";",
+) -> str:
+    output = StringIO()
+    writer = csv.writer(output, delimiter=delimiter, lineterminator="\n")
+
+    # Simplified DATEV-compatible CSV header (profile-based customization can extend this)
+    writer.writerow(
+        ["Datum", "Konto", "Gegenkonto", "Buchungstext", "Betrag", "Belegfeld1"]
+    )
+
+    date_value = _format_date_value(
+        session.get("completed_at") or session.get("started_at")
+    )
+    location_name = location.get("name", "")
+    beleg = f"Inventur {location_name}".strip()
+
+    for cat_name in sorted(category_totals):
+        totals = category_totals[cat_name]
+        amount = float(totals.get("value") or 0)
+        if amount == 0:
+            continue
+        writer.writerow(
+            [
+                date_value,
+                account,
+                counter_account,
+                f"{beleg} {cat_name}".strip(),
+                f"{amount:.2f}",
+                session.get("id", ""),
+            ]
+        )
+
+    return output.getvalue()
+
+
 @router.get("/export/session/{session_id}/pdf")
 def export_session_pdf(
     session_id: str, current_user: UserContext = Depends(get_current_user_context)
@@ -240,6 +292,38 @@ def export_session_csv_summary(
     )
 
 
+@router.get("/export/session/{session_id}/datev")
+def export_session_datev(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+    account: str = Query("4000"),
+    counter_account: str = Query("1200"),
+):
+    require_owner(current_user)
+    supabase = get_supabase()
+    session, items, location, profile, product_map, category_map = _load_session_data(
+        supabase, session_id, current_user.id
+    )
+
+    category_totals = _build_category_totals(items, product_map, category_map)
+    datev_csv = _build_datev_csv(
+        session,
+        location,
+        category_totals,
+        account,
+        counter_account,
+        settings.DATEV_DELIMITER,
+    )
+
+    return Response(
+        content=datev_csv,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=inventory-datev-{session_id}.csv"
+        },
+    )
+
+
 @router.post("/export/session/{session_id}/send")
 async def send_session_email(
     session_id: str,
@@ -270,6 +354,15 @@ async def send_session_email(
     category_totals = _build_category_totals(items, product_map, category_map)
     summary_csv = _build_summary_csv(session, location, profile, category_totals)
     csv_bytes = summary_csv.encode("utf-8")
+    datev_csv = _build_datev_csv(
+        session,
+        location,
+        category_totals,
+        settings.DATEV_DEFAULT_ACCOUNT,
+        settings.DATEV_COUNTER_ACCOUNT,
+        settings.DATEV_DELIMITER,
+    )
+    datev_bytes = datev_csv.encode("utf-8")
 
     company = profile.get("company_name") if profile else "Inventur"
     loc_name = location.get("name", "")
@@ -284,7 +377,7 @@ async def send_session_email(
         <p>Standort: {loc_name}</p>
         <p>Datum: {date}</p>
         <p>Gesamtwert: {float(session.get("total_value") or 0):.2f} EUR</p>
-        <p>Im Anhang finden Sie die Inventurliste (PDF) sowie eine Zusammenfassung (CSV).</p>
+        <p>Im Anhang finden Sie die Inventurliste (PDF), eine Zusammenfassung (CSV) sowie eine DATEV-CSV.</p>
         """
 
     success = await send_inventory_email(
@@ -293,6 +386,7 @@ async def send_session_email(
         body=body,
         pdf_attachment=pdf_bytes,
         csv_attachment=csv_bytes,
+        datev_attachment=datev_bytes,
         session_id=session_id,
     )
 
@@ -423,21 +517,11 @@ def update_item_price(
         )
 
     item = item_resp.data[0]
-    quantity = item.get("quantity") or 1
-    total_price = payload.unit_price * quantity
 
-    # Update the item
-    updated = (
-        supabase.table("inventory_items")
-        .update(
-            {
-                "unit_price": payload.unit_price,
-                "total_price": total_price,
-            }
-        )
-        .eq("id", item_id)
-        .execute()
-    )
+    # Update the item (total_price is generated in DB)
+    supabase.table("inventory_items").update(
+        {"unit_price": payload.unit_price}
+    ).eq("id", item_id).execute()
 
     # Recalculate session totals
     all_items = (
@@ -544,5 +628,75 @@ def export_bundle_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=inventory-bundle-{bundle_id}.pdf"
+        },
+    )
+
+
+@router.get("/export/bundle/{bundle_id}/datev")
+def export_bundle_datev(
+    bundle_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+    account: str = Query("4000"),
+    counter_account: str = Query("1200"),
+):
+    require_owner(current_user)
+    supabase = get_supabase()
+
+    bundle_resp = (
+        supabase.table("inventory_bundles")
+        .select("*")
+        .eq("id", bundle_id)
+        .eq("user_id", current_user.id)
+        .execute()
+    )
+    if not bundle_resp.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Bundle not found"
+        )
+    bundle = bundle_resp.data[0]
+
+    links_resp = (
+        supabase.table("inventory_bundle_sessions")
+        .select("session_id")
+        .eq("bundle_id", bundle_id)
+        .execute()
+    )
+    session_ids = [link["session_id"] for link in links_resp.data or []]
+    if not session_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bundle has no sessions",
+        )
+
+    aggregated_totals: dict[str, dict[str, float]] = {}
+    for session_id in session_ids:
+        session, items, location, profile, product_map, category_map = (
+            _load_session_data(supabase, session_id, current_user.id)
+        )
+        session_totals = _build_category_totals(items, product_map, category_map)
+        for cat_name, totals in session_totals.items():
+            if cat_name not in aggregated_totals:
+                aggregated_totals[cat_name] = {"count": 0, "value": 0.0}
+            aggregated_totals[cat_name]["count"] += int(totals.get("count") or 0)
+            aggregated_totals[cat_name]["value"] += float(totals.get("value") or 0)
+
+    datev_csv = _build_datev_csv(
+        {
+            "id": bundle_id,
+            "completed_at": bundle.get("completed_at") or bundle.get("created_at"),
+            "started_at": bundle.get("created_at"),
+        },
+        {"name": bundle.get("name", "Bundle")},
+        aggregated_totals,
+        account,
+        counter_account,
+        settings.DATEV_DELIMITER,
+    )
+
+    return Response(
+        content=datev_csv,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=inventory-bundle-datev-{bundle_id}.csv"
         },
     )

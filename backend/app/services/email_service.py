@@ -40,6 +40,7 @@ async def send_inventory_email(
     body: str,
     pdf_attachment: bytes,
     csv_attachment: bytes,
+    datev_attachment: bytes | None,
     session_id: str,
 ) -> bool:
     """Sendet Inventur-Export per Email."""
@@ -65,6 +66,13 @@ async def send_inventory_email(
         subtype="csv",
         filename=f"inventur-zusammenfassung-{session_id}.csv",
     )
+    if datev_attachment:
+        message.add_attachment(
+            datev_attachment,
+            maintype="text",
+            subtype="csv",
+            filename=f"inventur-datev-{session_id}.csv",
+        )
 
     try:
         await anyio.to_thread.run_sync(_send_email_sync, message)

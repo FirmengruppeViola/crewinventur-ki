@@ -20,6 +20,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _log_inventory_action(
+    supabase,
+    action: str,
+    user_id: str,
+    session_id: str,
+    item_id: str | None = None,
+    before_data: dict[str, Any] | None = None,
+    after_data: dict[str, Any] | None = None,
+) -> None:
+    """Best-effort audit log for inventory changes."""
+    try:
+        supabase.table("inventory_audit_logs").insert(
+            {
+                "session_id": session_id,
+                "item_id": item_id,
+                "user_id": user_id,
+                "action": action,
+                "before_data": before_data,
+                "after_data": after_data,
+            }
+        ).execute()
+    except Exception as exc:
+        logger.warning(f"Failed to write inventory audit log: {exc}")
+
+
 def _recalculate_totals(supabase, session_id: str):
     items = (
         supabase.table("inventory_items")
@@ -414,6 +439,26 @@ def complete_session(
             }
         ).eq("id", item_id).execute()
 
+    # Persist differences (best-effort; don't block completion if this fails)
+    try:
+        supabase.table("inventory_session_differences").delete().eq(
+            "session_id", session_id
+        ).execute()
+        if differences:
+            diff_rows = [
+                {
+                    "session_id": session_id,
+                    "product_id": diff["product_id"],
+                    "previous_quantity": diff.get("previous_quantity"),
+                    "current_quantity": diff.get("current_quantity"),
+                    "quantity_difference": diff.get("quantity_diff"),
+                }
+                for diff in differences
+            ]
+            supabase.table("inventory_session_differences").insert(diff_rows).execute()
+    except Exception as e:
+        logger.warning(f"Failed to persist session differences: {e}")
+
     completed_at = datetime.now(timezone.utc).isoformat()
     update_resp = (
         supabase.table("inventory_sessions")
@@ -422,7 +467,6 @@ def complete_session(
                 "status": "completed",
                 "completed_at": completed_at,
                 "previous_session_id": previous_id,
-                "differences": differences,
             }
         )
         .eq("id", session_id)
@@ -436,6 +480,19 @@ def complete_session(
         )
 
     _recalculate_totals(supabase, session_id)
+    _log_inventory_action(
+        supabase,
+        action="complete_session",
+        user_id=current_user.id,
+        session_id=session_id,
+        item_id=None,
+        before_data={"status": session.get("status")},
+        after_data={
+            "status": "completed",
+            "completed_at": completed_at,
+            "previous_session_id": previous_id,
+        },
+    )
     return _fetch_session_row()
 
 
@@ -457,6 +514,27 @@ def list_session_items(
         .select("*")
         .eq("session_id", session_id)
         .order("scanned_at", desc=True)
+        .execute()
+    )
+    return response.data or []
+
+
+@router.get("/inventory/sessions/{session_id}/differences")
+def list_session_differences(
+    session_id: str,
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    """List quantity differences vs previous session."""
+    supabase = get_supabase()
+
+    _verify_session_access(supabase, session_id, current_user)
+
+    response = (
+        supabase.table("inventory_session_differences")
+        .select(
+            "product_id, previous_quantity, current_quantity, quantity_difference, products(name, brand)"
+        )
+        .eq("session_id", session_id)
         .execute()
     )
     return response.data or []
@@ -487,7 +565,7 @@ def add_session_item(
     if payload.full_quantity is not None:
         full_qty = payload.full_quantity
         partial_qty = payload.partial_quantity or 0
-        partial_pct = payload.partial_fill_percent or 0
+        partial_pct = payload.partial_fill_percent
     elif payload.quantity is not None:
         # Legacy: treat quantity as full_quantity
         full_qty = payload.quantity
@@ -498,6 +576,12 @@ def add_session_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either full_quantity or quantity must be provided",
         )
+
+    if partial_pct is None:
+        try:
+            partial_pct = int(round(float(partial_qty or 0) * 100))
+        except (TypeError, ValueError):
+            partial_pct = 0
 
     total_qty = full_qty + partial_qty
 
@@ -528,9 +612,10 @@ def add_session_item(
 
         if merge_mode == "add":
             # Add quantities together
-            existing_full = float(
-                existing_item.get("full_quantity") or existing_item.get("quantity") or 0
-            )
+            existing_full_raw = existing_item.get("full_quantity")
+            if existing_full_raw is None:
+                existing_full_raw = existing_item.get("quantity")
+            existing_full = float(existing_full_raw or 0)
             existing_partial = float(existing_item.get("partial_quantity") or 0)
             new_full = existing_full + full_qty
             new_partial = existing_partial + partial_qty
@@ -538,6 +623,7 @@ def add_session_item(
             if new_partial >= 1:
                 new_full += int(new_partial)
                 new_partial = new_partial - int(new_partial)
+            merged_partial_pct = int(round(new_partial * 100))
 
             update_resp = (
                 supabase.table("inventory_items")
@@ -545,7 +631,7 @@ def add_session_item(
                     {
                         "full_quantity": new_full,
                         "partial_quantity": new_partial,
-                        "partial_fill_percent": partial_pct,
+                        "partial_fill_percent": merged_partial_pct,
                         "quantity": new_full + new_partial,
                         "unit_price": unit_price,
                     }
@@ -553,6 +639,16 @@ def add_session_item(
                 .eq("id", existing_item["id"])
                 .execute()
             )
+            if update_resp.data:
+                _log_inventory_action(
+                    supabase,
+                    action="update",
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    item_id=existing_item.get("id"),
+                    before_data=existing_item,
+                    after_data=update_resp.data[0],
+                )
             _recalculate_totals(supabase, session_id)
             return update_resp.data[0]
 
@@ -575,6 +671,16 @@ def add_session_item(
                 .eq("id", existing_item["id"])
                 .execute()
             )
+            if update_resp.data:
+                _log_inventory_action(
+                    supabase,
+                    action="update",
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    item_id=existing_item.get("id"),
+                    before_data=existing_item,
+                    after_data=update_resp.data[0],
+                )
             _recalculate_totals(supabase, session_id)
             return update_resp.data[0]
 
@@ -612,6 +718,16 @@ def add_session_item(
             detail="Item creation failed",
         )
 
+    _log_inventory_action(
+        supabase,
+        action="create",
+        user_id=current_user.id,
+        session_id=session_id,
+        item_id=data.get("id"),
+        before_data=None,
+        after_data=data,
+    )
+
     _recalculate_totals(supabase, session_id)
     return data
 
@@ -625,10 +741,10 @@ def update_item(
     """Update an inventory item."""
     supabase = get_supabase()
 
-    # Get item to find session_id
+    # Get item to find session_id and current quantities
     item_resp = (
         supabase.table("inventory_items")
-        .select("id, session_id")
+        .select("id, session_id, full_quantity, partial_quantity, quantity")
         .eq("id", item_id)
         .execute()
     )
@@ -648,6 +764,42 @@ def update_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No data to update",
         )
+
+    current_item = item_resp.data[0]
+    current_full_raw = current_item.get("full_quantity")
+    if current_full_raw is None:
+        current_full_raw = current_item.get("quantity")
+    current_full = float(current_full_raw or 0)
+    current_partial = current_item.get("partial_quantity") or 0
+
+    # Keep quantity consistent with full/partial inputs.
+    if "full_quantity" in update_data or "partial_quantity" in update_data:
+        full = (
+            update_data.get("full_quantity")
+            if "full_quantity" in update_data
+            else current_full
+        )
+        partial = (
+            update_data.get("partial_quantity")
+            if "partial_quantity" in update_data
+            else current_partial
+        )
+        try:
+            update_data["quantity"] = float(full or 0) + float(partial or 0)
+        except (TypeError, ValueError):
+            update_data["quantity"] = 0
+        if "partial_fill_percent" not in update_data:
+            update_data["partial_fill_percent"] = int(
+                round(float(partial or 0) * 100)
+            )
+    elif "quantity" in update_data:
+        # Legacy update: align full/partial to keep data consistent
+        if "full_quantity" not in update_data:
+            update_data["full_quantity"] = update_data["quantity"]
+        if "partial_quantity" not in update_data:
+            update_data["partial_quantity"] = 0
+        if "partial_fill_percent" not in update_data:
+            update_data["partial_fill_percent"] = 0
     response = (
         supabase.table("inventory_items")
         .update(update_data)
@@ -663,6 +815,15 @@ def update_item(
 
     if session_id:
         _recalculate_totals(supabase, session_id)
+        _log_inventory_action(
+            supabase,
+            action="update",
+            user_id=current_user.id,
+            session_id=session_id,
+            item_id=item_id,
+            before_data=current_item,
+            after_data=data,
+        )
     return data
 
 
@@ -677,7 +838,7 @@ def delete_item(
     # Get item to find session_id
     item_resp = (
         supabase.table("inventory_items")
-        .select("id, session_id")
+        .select("*")
         .eq("id", item_id)
         .execute()
     )
@@ -686,7 +847,8 @@ def delete_item(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Item not found",
         )
-    session_id = item_resp.data[0]["session_id"]
+    item_before = item_resp.data[0]
+    session_id = item_before["session_id"]
 
     # Verify session access
     _verify_session_access(supabase, session_id, current_user)
@@ -700,4 +862,13 @@ def delete_item(
         )
     if session_id:
         _recalculate_totals(supabase, session_id)
+        _log_inventory_action(
+            supabase,
+            action="delete",
+            user_id=current_user.id,
+            session_id=session_id,
+            item_id=item_id,
+            before_data=item_before,
+            after_data=None,
+        )
     return data

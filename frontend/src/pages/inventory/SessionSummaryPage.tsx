@@ -70,7 +70,7 @@ export function SessionSummaryPage() {
 
   const missingPricesValidation = isOwner && validation && !validation.valid ? validation : null
 
-  const downloadFile = async (format: 'pdf' | 'csv' | 'csv-summary') => {
+  const downloadFile = async (format: 'pdf' | 'csv' | 'csv-summary' | 'datev') => {
     if (!isOwner) return
 
     // Warn about missing prices but allow download
@@ -84,7 +84,9 @@ export function SessionSummaryPage() {
     const filename =
       format === 'csv-summary'
         ? `inventory-${sessionId}-summary.csv`
-        : `inventory-${sessionId}.${format}`
+        : format === 'datev'
+          ? `inventory-${sessionId}-datev.csv`
+          : `inventory-${sessionId}.${format}`
 
     try {
       await apiDownload(
@@ -195,6 +197,9 @@ export function SessionSummaryPage() {
             <Button variant="secondary" size="sm" onClick={() => downloadFile('csv-summary')}>
               CSV Zusammenfassung
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => downloadFile('datev')}>
+              DATEV CSV
+            </Button>
             <Button variant="secondary" size="sm" onClick={openEmailModal}>
               <Send className="mr-1.5 h-3.5 w-3.5" />
               {accountantEmail ? 'An Steuerberater senden' : 'Per Email senden'}
@@ -273,4 +278,3 @@ export function SessionSummaryPage() {
     </div>
   )
 }
-

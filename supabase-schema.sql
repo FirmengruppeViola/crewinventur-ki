@@ -234,8 +234,14 @@ CREATE TABLE public.inventory_sessions (
 
 ALTER TABLE public.inventory_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own sessions" ON public.inventory_sessions
+CREATE POLICY "Owner can manage own sessions" ON public.inventory_sessions
     FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Manager can manage sessions for assigned locations" ON public.inventory_sessions
+    FOR ALL USING (
+        (location_id = ANY (get_allowed_location_ids()))
+        AND (user_id = get_effective_owner_id())
+    );
 
 CREATE INDEX idx_sessions_user ON public.inventory_sessions(user_id);
 CREATE INDEX idx_sessions_location ON public.inventory_sessions(location_id);
@@ -250,15 +256,15 @@ CREATE TABLE public.inventory_items (
 
     -- Quantity with partial (Anbruch) support
     -- Example: 4 full bottles + 1 at 50% = full_quantity=4, partial_quantity=0.5
-    full_quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
+    full_quantity DECIMAL(10,3) DEFAULT 0,
     partial_quantity DECIMAL(5,3) DEFAULT 0,  -- 0.0 to 0.999
     partial_fill_percent INTEGER DEFAULT 0,   -- 0 to 100 (for UI display)
 
-    -- Computed total quantity (full + partial)
-    quantity DECIMAL(10,3) NOT NULL GENERATED ALWAYS AS (full_quantity + COALESCE(partial_quantity, 0)) STORED,
+    -- Stored total quantity (kept in sync by application logic)
+    quantity DECIMAL(10,3) NOT NULL,
 
-    unit_price DECIMAL(10,2) NOT NULL,
-    total_price DECIMAL(12,2) GENERATED ALWAYS AS ((full_quantity + COALESCE(partial_quantity, 0)) * unit_price) STORED,
+    unit_price DECIMAL(10,2),
+    total_price DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
 
     previous_quantity DECIMAL(10,3),
     quantity_difference DECIMAL(10,3),
@@ -275,15 +281,100 @@ CREATE TABLE public.inventory_items (
 
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own inventory items" ON public.inventory_items
+CREATE POLICY "Users can manage inventory items" ON public.inventory_items
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.inventory_sessions s
-            WHERE s.id = session_id AND s.user_id = auth.uid()
+            WHERE s.id = session_id
+            AND (
+                s.user_id = auth.uid()
+                OR (
+                    s.location_id = ANY (get_allowed_location_ids())
+                    AND s.user_id = get_effective_owner_id()
+                )
+            )
         )
     );
 
 CREATE INDEX idx_session_items_session ON public.inventory_items(session_id);
+
+-- =====================================================
+-- INVENTORY_SESSION_DIFFERENCES
+-- =====================================================
+CREATE TABLE public.inventory_session_differences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES public.inventory_sessions(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id),
+    previous_quantity DECIMAL(10,3),
+    current_quantity DECIMAL(10,3),
+    quantity_difference DECIMAL(10,3),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(session_id, product_id)
+);
+
+ALTER TABLE public.inventory_session_differences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage inventory session differences" ON public.inventory_session_differences
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.inventory_sessions s
+            WHERE s.id = session_id AND (
+                s.user_id = auth.uid()
+                OR (
+                    s.location_id = ANY (get_allowed_location_ids())
+                    AND s.user_id = get_effective_owner_id()
+                )
+            )
+        )
+    );
+
+CREATE INDEX idx_inventory_session_differences_session ON public.inventory_session_differences(session_id);
+
+-- =====================================================
+-- INVENTORY_AUDIT_LOGS
+-- =====================================================
+CREATE TABLE public.inventory_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES public.inventory_sessions(id) ON DELETE CASCADE,
+    item_id UUID REFERENCES public.inventory_items(id) ON DELETE SET NULL,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    before_data JSONB,
+    after_data JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.inventory_audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read inventory audit logs" ON public.inventory_audit_logs
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.inventory_sessions s
+            WHERE s.id = session_id AND (
+                s.user_id = auth.uid()
+                OR (
+                    s.location_id = ANY (get_allowed_location_ids())
+                    AND s.user_id = get_effective_owner_id()
+                )
+            )
+        )
+    );
+
+CREATE POLICY "Users can insert inventory audit logs" ON public.inventory_audit_logs
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.inventory_sessions s
+            WHERE s.id = session_id AND (
+                s.user_id = auth.uid()
+                OR (
+                    s.location_id = ANY (get_allowed_location_ids())
+                    AND s.user_id = get_effective_owner_id()
+                )
+            )
+        )
+    );
+
+CREATE INDEX idx_inventory_audit_logs_session ON public.inventory_audit_logs(session_id);
 
 -- =====================================================
 -- INVENTORY_BUNDLES
