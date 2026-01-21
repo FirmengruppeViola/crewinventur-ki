@@ -303,7 +303,54 @@ export function ActiveSessionPage() {
                           queryClient.invalidateQueries({
                             queryKey: ['inventory', 'sessions', sessionId],
                           })
-                          addToast('Entfernt', 'success')
+                          addToast('Produkt entfernt', 'info', {
+                            label: 'Rückgängig',
+                            onAction: async () => {
+                              try {
+                                const restorePayload: Record<string, unknown> = {
+                                  product_id: item.product_id,
+                                  unit_price: item.unit_price ?? undefined,
+                                  notes: item.notes ?? undefined,
+                                  scan_method: item.scan_method ?? undefined,
+                                  ai_confidence: item.ai_confidence ?? undefined,
+                                }
+                                if (
+                                  item.full_quantity !== null ||
+                                  item.partial_quantity !== null
+                                ) {
+                                  restorePayload.full_quantity = item.full_quantity ?? 0
+                                  restorePayload.partial_quantity =
+                                    item.partial_quantity ?? 0
+                                  restorePayload.partial_fill_percent =
+                                    item.partial_fill_percent ?? 0
+                                } else {
+                                  restorePayload.quantity = item.quantity ?? 0
+                                }
+                                await apiRequest(
+                                  `/api/v1/inventory/sessions/${sessionId}/items`,
+                                  {
+                                    method: 'POST',
+                                    body: JSON.stringify(restorePayload),
+                                  },
+                                  token,
+                                )
+                                queryClient.invalidateQueries({
+                                  queryKey: ['inventory', 'items', sessionId],
+                                })
+                                queryClient.invalidateQueries({
+                                  queryKey: ['inventory', 'sessions', sessionId],
+                                })
+                                addToast('Wiederhergestellt', 'success')
+                              } catch (restoreError) {
+                                addToast(
+                                  restoreError instanceof Error
+                                    ? restoreError.message
+                                    : 'Wiederherstellen fehlgeschlagen',
+                                  'error',
+                                )
+                              }
+                            },
+                          })
                         } catch {
                           addToast('Löschen fehlgeschlagen', 'error')
                         } finally {

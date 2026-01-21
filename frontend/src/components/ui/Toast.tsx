@@ -20,7 +20,7 @@ const typeIcons = {
   warning: TriangleAlert,
 }
 
-export function Toast({ message, type, onClose }: ToastProps) {
+export function Toast({ message, type, onClose, actionLabel, onAction }: ToastProps) {
   const Icon = typeIcons[type]
   return (
     <div
@@ -32,7 +32,21 @@ export function Toast({ message, type, onClose }: ToastProps) {
       <div className="flex-shrink-0 mt-0.5">
         <Icon className="h-5 w-5" />
       </div>
-      <span className="flex-1 text-sm font-medium leading-relaxed">{message}</span>
+      <div className="flex-1 space-y-2">
+        <span className="block text-sm font-medium leading-relaxed">{message}</span>
+        {actionLabel && onAction ? (
+          <button
+            type="button"
+            onClick={() => {
+              onAction()
+              onClose()
+            }}
+            className="text-xs font-semibold uppercase tracking-wide text-current/80 hover:text-current transition-colors"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
       <button
         type="button"
         onClick={onClose}
