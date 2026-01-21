@@ -16,11 +16,39 @@ Prompts follow Gemini 3 best practices:
 
 import base64
 import logging
+from io import BytesIO
 
 from app.core.gemini import generate_structured, ThinkingLevel
 from app.schemas.gemini_responses import InvoiceExtractionResponse
 
 logger = logging.getLogger(__name__)
+
+MAX_INVOICE_TEXT_CHARS = 12000
+
+
+def _extract_pdf_text(file_bytes: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+    except Exception as exc:
+        logger.warning("pypdf not available for text extraction: %s", exc)
+        return ""
+
+    try:
+        reader = PdfReader(BytesIO(file_bytes))
+        chunks: list[str] = []
+        for page in reader.pages[:8]:
+            text = page.extract_text() or ""
+            if text:
+                chunks.append(text)
+            if sum(len(chunk) for chunk in chunks) >= MAX_INVOICE_TEXT_CHARS:
+                break
+        combined = "\n".join(chunks).strip()
+        if len(combined) > MAX_INVOICE_TEXT_CHARS:
+            combined = combined[:MAX_INVOICE_TEXT_CHARS]
+        return combined
+    except Exception as exc:
+        logger.warning("Failed to extract PDF text layer: %s", exc)
+        return ""
 
 
 def _build_prompt() -> str:
@@ -143,6 +171,20 @@ def extract_invoice(
 
     file_bytes = base64.b64decode(file_base64)
     prompt = _build_prompt()
+
+    if mime_type == "application/pdf":
+        text_layer = _extract_pdf_text(file_bytes)
+        if text_layer:
+            prompt = (
+                f"{prompt}\n\n"
+                "<invoice_text>\n"
+                f"{text_layer}\n"
+                "</invoice_text>\n\n"
+                "<note>\n"
+                "Nutze invoice_text als primaere Quelle, falls lesbar. "
+                "Wenn etwas unklar ist, verifiziere mit dem Layout.\n"
+                "</note>"
+            )
 
     # Use HIGH thinking for complex invoice analysis
     data = generate_structured(

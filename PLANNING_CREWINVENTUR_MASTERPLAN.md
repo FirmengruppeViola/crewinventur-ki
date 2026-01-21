@@ -276,5 +276,5 @@ Wenn es abstürzt, arbeite so weiter:
 
 ### Letzter Checkpoint
 - Datum: 2026-01-21
-- Was wurde verifiziert/entschieden: ZIP-Upload für Rechnungen, Alias-Lernen per Match, Bulk-Matching + Undo im Review ergänzt, DB-Migrationen für Aliases + AI-Normalisierung ergänzt.
-- Nächster Schritt: OCR/Textlayer-Fallback evaluieren und ggf. Review-Flow für KI-Zuordnungen verfeinern.
+- Was wurde verifiziert/entschieden: ZIP-Upload für Rechnungen, Alias-Lernen per Match, Bulk-Matching + Undo im Review ergänzt, Textlayer-Extraktion (PDF) in der KI-Rechnungserkennung.
+- Nächster Schritt: OCR-Fallback (Bild-Rendering bei fehlendem Textlayer) evaluieren und ggf. Review-Flow für KI-Zuordnungen verfeinern.
