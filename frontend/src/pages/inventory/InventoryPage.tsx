@@ -83,6 +83,7 @@ export function InventoryPage() {
   const [reorderLocationId, setReorderLocationId] = useState('')
   const [reorderProductId, setReorderProductId] = useState('')
   const [reorderMinQty, setReorderMinQty] = useState('')
+  const [reorderTargetDays, setReorderTargetDays] = useState('7')
   
   const openCreate = Boolean(
     (routeLocation.state as { openCreate?: boolean } | null)?.openCreate
@@ -114,9 +115,11 @@ export function InventoryPage() {
   const activeSessions = sessionsList.filter((s) => s.status !== 'completed')
   const completedSessions = sessionsList.filter((s) => s.status === 'completed')
 
+  const targetDaysValue = Number(reorderTargetDays)
+  const targetDays = Number.isNaN(targetDaysValue) || targetDaysValue <= 0 ? 7 : targetDaysValue
   const { data: reorderOverview, isLoading: reorderLoading } = useReorderOverview(
     reorderLocationId,
-    { onlyBelow: true },
+    { onlyBelow: true, includeTrends: true, targetDays },
   )
   const { data: reorderSettings, isLoading: reorderSettingsLoading } = useReorderSettings(
     reorderLocationId,
@@ -199,7 +202,7 @@ export function InventoryPage() {
     const filename = `reorder-${reorderLocationId}.${format}`
     try {
       await apiDownload(
-        `/api/v1/reorder/locations/${reorderLocationId}/export/${format}`,
+        `/api/v1/reorder/locations/${reorderLocationId}/export/${format}?include_trends=true&target_days=${targetDays}`,
         filename,
       )
     } catch (error) {
@@ -396,6 +399,16 @@ export function InventoryPage() {
               </div>
             </div>
 
+            <Input
+              label="Vorschlag basierend auf Verbrauch (Tage)"
+              type="number"
+              step="1"
+              min="1"
+              value={reorderTargetDays}
+              onChange={(event) => setReorderTargetDays(event.target.value)}
+              className="bg-background"
+            />
+
             {reorderLoading ? (
               <div className="rounded-2xl border border-border/50 p-6 text-center text-sm text-muted-foreground">
                 Lade Nachbestellliste...
@@ -413,6 +426,11 @@ export function InventoryPage() {
                         <p className="text-xs text-muted-foreground">
                           Bestand: {item.current_quantity} {item.unit || ''}
                         </p>
+                        {item.avg_daily_usage != null && (
+                          <p className="text-xs text-muted-foreground">
+                            Verbrauch: {item.avg_daily_usage.toFixed(2)} / Tag
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Mindestbestand</p>
@@ -422,6 +440,11 @@ export function InventoryPage() {
                         <p className="text-xs text-destructive mt-1">
                           Fehlmenge: {item.deficit}
                         </p>
+                        {item.recommended_quantity != null && (
+                          <p className="text-xs text-primary mt-1">
+                            Vorschlag: {item.recommended_quantity.toFixed(2)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Card>

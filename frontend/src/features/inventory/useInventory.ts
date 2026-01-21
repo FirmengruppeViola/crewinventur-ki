@@ -81,6 +81,9 @@ export type ReorderItem = {
   current_quantity: number
   min_quantity: number
   deficit: number
+  previous_quantity?: number | null
+  avg_daily_usage?: number | null
+  recommended_quantity?: number | null
 }
 
 export type ReorderOverview = {
@@ -88,6 +91,8 @@ export type ReorderOverview = {
   location_name: string | null
   session_id: string | null
   completed_at: string | null
+  previous_completed_at?: string | null
+  day_span?: number | null
   items: ReorderItem[]
 }
 
@@ -283,18 +288,20 @@ export function useSessionAuditLogs(sessionId?: string, options?: { limit?: numb
 
 export function useReorderOverview(
   locationId?: string,
-  options?: { onlyBelow?: boolean },
+  options?: { onlyBelow?: boolean; includeTrends?: boolean; targetDays?: number },
 ) {
   const queryClient = useQueryClient()
   const { session } = useAuth()
   const token = session?.access_token
   const onlyBelow = options?.onlyBelow ?? true
-  const queryKey = ['reorder', 'overview', locationId, onlyBelow]
+  const includeTrends = options?.includeTrends ?? false
+  const targetDays = options?.targetDays ?? 7
+  const queryKey = ['reorder', 'overview', locationId, onlyBelow, includeTrends, targetDays]
   return useQuery({
     queryKey,
     queryFn: () =>
       apiRequest<ReorderOverview>(
-        `/api/v1/reorder/locations/${locationId}?only_below=${onlyBelow ? 'true' : 'false'}`,
+        `/api/v1/reorder/locations/${locationId}?only_below=${onlyBelow ? 'true' : 'false'}&include_trends=${includeTrends ? 'true' : 'false'}&target_days=${targetDays}`,
         { method: 'GET' },
         token,
       ),

@@ -318,19 +318,26 @@ def generate_reorder_pdf(
         )
     elements.append(Spacer(1, 12))
 
+    include_recommendation = any(
+        item.get("recommended_quantity") is not None for item in items
+    )
     data = [["Produkt", "Bestand", "Mindestbestand", "Fehlmenge"]]
+    if include_recommendation:
+        data[0].append("Vorschlag")
     for item in items:
         product_name = " ".join(
             [part for part in [item.get("brand"), item.get("product_name")] if part]
         ).strip()
-        data.append(
-            [
-                product_name or item.get("product_name", "-"),
-                f"{item.get('current_quantity', 0)} {item.get('unit') or ''}".strip(),
-                f"{item.get('min_quantity', 0)} {item.get('unit') or ''}".strip(),
-                f"{item.get('deficit', 0)} {item.get('unit') or ''}".strip(),
-            ]
-        )
+        row = [
+            product_name or item.get("product_name", "-"),
+            f"{item.get('current_quantity', 0)} {item.get('unit') or ''}".strip(),
+            f"{item.get('min_quantity', 0)} {item.get('unit') or ''}".strip(),
+            f"{item.get('deficit', 0)} {item.get('unit') or ''}".strip(),
+        ]
+        if include_recommendation:
+            recommended = item.get("recommended_quantity")
+            row.append(f"{recommended:.2f}" if isinstance(recommended, (int, float)) else "-")
+        data.append(row)
 
     table = Table(data, hAlign="LEFT")
     table.setStyle(

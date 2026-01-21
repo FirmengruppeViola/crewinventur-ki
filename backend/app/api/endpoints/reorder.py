@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from io import StringIO
 import csv
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
@@ -49,7 +50,7 @@ def _require_location_access(
 def _get_latest_completed_session(supabase, owner_id: str, location_id: str):
     session_resp = (
         supabase.table("inventory_sessions")
-        .select("id, completed_at")
+        .select("id, completed_at, previous_session_id")
         .eq("user_id", owner_id)
         .eq("location_id", location_id)
         .eq("status", "completed")
@@ -58,6 +59,58 @@ def _get_latest_completed_session(supabase, owner_id: str, location_id: str):
         .execute()
     )
     return session_resp.data[0] if session_resp.data else None
+
+
+def _get_session_by_id(supabase, session_id: str) -> dict[str, Any] | None:
+    response = (
+        supabase.table("inventory_sessions")
+        .select("id, completed_at")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    return response.data if isinstance(response.data, dict) else None
+
+
+def _load_difference_map(supabase, session_id: str) -> dict[str, dict[str, float | None]]:
+    response = (
+        supabase.table("inventory_session_differences")
+        .select("product_id, previous_quantity, current_quantity, quantity_difference")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    diff_map: dict[str, dict[str, float | None]] = {}
+    for row in response.data or []:
+        if not isinstance(row, dict):
+            continue
+        product_id = row.get("product_id")
+        if not product_id:
+            continue
+        diff_map[product_id] = {
+            "previous_quantity": row.get("previous_quantity"),
+            "current_quantity": row.get("current_quantity"),
+            "quantity_difference": row.get("quantity_difference"),
+        }
+    return diff_map
+
+
+def _parse_iso(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _calculate_day_span(current_completed_at: str | None, previous_completed_at: str | None) -> float:
+    if not current_completed_at or not previous_completed_at:
+        return 0.0
+    current_dt = _parse_iso(current_completed_at)
+    previous_dt = _parse_iso(previous_completed_at)
+    if not current_dt or not previous_dt:
+        return 0.0
+    delta = current_dt - previous_dt
+    days = delta.total_seconds() / 86400
+    return max(days, 0.0)
 
 
 def _load_quantity_map(supabase, session_id: str) -> dict[str, float]:
@@ -90,12 +143,27 @@ def _build_reorder_overview(
     current_user: UserContext,
     location_id: str,
     only_below: bool,
+    include_trends: bool = False,
+    target_days: int = 7,
 ) -> dict[str, Any]:
     owner_id = current_user.effective_owner_id
     location = _require_location_access(current_user, location_id, owner_id, supabase)
 
     session = _get_latest_completed_session(supabase, owner_id, location_id)
     quantity_map = _load_quantity_map(supabase, session["id"]) if session else {}
+    diff_map: dict[str, dict[str, float | None]] = {}
+    previous_completed_at = None
+    day_span = 0.0
+
+    if include_trends and session:
+        previous_id = session.get("previous_session_id")
+        if previous_id:
+            previous_session = _get_session_by_id(supabase, previous_id)
+            previous_completed_at = (
+                previous_session.get("completed_at") if previous_session else None
+            )
+            day_span = _calculate_day_span(session.get("completed_at"), previous_completed_at)
+            diff_map = _load_difference_map(supabase, session["id"])
 
     settings_resp = (
         supabase.table("product_reorder_settings")
@@ -131,18 +199,43 @@ def _build_reorder_overview(
             if min_qty <= 0 or deficit <= 0:
                 continue
 
-        items.append(
-            {
-                "product_id": product_id,
-                "product_name": product.get("name"),
-                "brand": product.get("brand"),
-                "size": product.get("size"),
-                "unit": product.get("unit"),
-                "current_quantity": current_qty,
-                "min_quantity": min_qty,
-                "deficit": deficit,
-            }
-        )
+        item_data: dict[str, Any] = {
+            "product_id": product_id,
+            "product_name": product.get("name"),
+            "brand": product.get("brand"),
+            "size": product.get("size"),
+            "unit": product.get("unit"),
+            "current_quantity": current_qty,
+            "min_quantity": min_qty,
+            "deficit": deficit,
+        }
+
+        if include_trends:
+            diff = diff_map.get(product_id, {})
+            previous_qty = diff.get("previous_quantity")
+            current_qty_from_diff = diff.get("current_quantity")
+            if previous_qty is None and current_qty_from_diff is None:
+                avg_daily = None
+                consumption = None
+            else:
+                prev_val = float(previous_qty or 0)
+                curr_val = float(current_qty_from_diff or current_qty)
+                consumption = max(prev_val - curr_val, 0.0)
+                avg_daily = (consumption / day_span) if day_span > 0 else None
+
+            recommended = deficit
+            if avg_daily is not None:
+                recommended = max(deficit, avg_daily * max(target_days, 1))
+
+            item_data.update(
+                {
+                    "previous_quantity": previous_qty,
+                    "avg_daily_usage": avg_daily,
+                    "recommended_quantity": recommended,
+                }
+            )
+
+        items.append(item_data)
 
     items.sort(key=lambda item: item.get("deficit", 0), reverse=True)
 
@@ -151,6 +244,8 @@ def _build_reorder_overview(
         "location_name": location.get("name"),
         "session_id": session.get("id") if session else None,
         "completed_at": session.get("completed_at") if session else None,
+        "previous_completed_at": previous_completed_at,
+        "day_span": day_span,
         "items": items,
     }
 
@@ -159,10 +254,19 @@ def _build_reorder_overview(
 def get_reorder_overview(
     location_id: str,
     only_below: bool = Query(True, description="Only items below minimum stock"),
+    include_trends: bool = Query(False, description="Include trend-based suggestions"),
+    target_days: int = Query(7, ge=1, le=90),
     current_user: UserContext = Depends(get_current_user_context),
 ):
     supabase = get_supabase()
-    return _build_reorder_overview(supabase, current_user, location_id, only_below)
+    return _build_reorder_overview(
+        supabase,
+        current_user,
+        location_id,
+        only_below,
+        include_trends=include_trends,
+        target_days=target_days,
+    )
 
 
 @router.get("/reorder/locations/{location_id}/settings")
@@ -297,6 +401,8 @@ def export_reorder_list(
     location_id: str,
     format: str,
     only_below: bool = Query(True, description="Only items below minimum stock"),
+    include_trends: bool = Query(True, description="Include trend-based suggestions"),
+    target_days: int = Query(7, ge=1, le=90),
     current_user: UserContext = Depends(get_current_user_context),
 ):
     if format not in {"csv", "pdf"}:
@@ -306,24 +412,33 @@ def export_reorder_list(
         )
 
     supabase = get_supabase()
-    overview = _build_reorder_overview(supabase, current_user, location_id, only_below)
+    overview = _build_reorder_overview(
+        supabase,
+        current_user,
+        location_id,
+        only_below,
+        include_trends=include_trends,
+        target_days=target_days,
+    )
     items = overview.get("items", [])
 
     if format == "csv":
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(
-            [
-                "Produkt",
-                "Marke",
-                "Groesse",
-                "Einheit",
-                "Bestand",
-                "Mindestbestand",
-                "Fehlmenge",
-            ]
-        )
+        headers = [
+            "Produkt",
+            "Marke",
+            "Groesse",
+            "Einheit",
+            "Bestand",
+            "Mindestbestand",
+            "Fehlmenge",
+        ]
+        if include_trends:
+            headers += ["Durchschnitt pro Tag", "Vorschlag"]
+        writer.writerow(headers)
         for item in items:
+            avg_daily = item.get("avg_daily_usage") if include_trends else None
             writer.writerow(
                 [
                     item.get("product_name", ""),
@@ -333,6 +448,10 @@ def export_reorder_list(
                     item.get("current_quantity", 0),
                     item.get("min_quantity", 0),
                     item.get("deficit", 0),
+                    f"{avg_daily:.2f}" if isinstance(avg_daily, (int, float)) else "",
+                    f"{item.get('recommended_quantity', ''):.2f}"
+                    if include_trends and isinstance(item.get("recommended_quantity"), (int, float))
+                    else "",
                 ]
             )
 

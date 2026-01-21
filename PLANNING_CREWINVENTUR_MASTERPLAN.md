@@ -278,4 +278,4 @@ Wenn es abstürzt, arbeite so weiter:
 - Datum: 2026-01-21
 - Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Review-Flow erweitert, OCR-Fallback aktiv.
 - Was wurde verifiziert/entschieden: Reorder-MVP ergänzt (Mindestbestand pro Location + Nachbestellliste), Audit-Log-View im Session Summary, OCR-Fallback aktiv.
-- Nächster Schritt: Verbrauch/Trend-basierte Vorschlaege für Reorder.
+- Nächster Schritt: Verbrauch/Trend-basierte Vorschlaege für Reorder (weitere Verfeinerung).
