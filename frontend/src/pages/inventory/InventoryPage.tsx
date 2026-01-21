@@ -11,6 +11,7 @@ import { BottomSheet } from '../../components/ui/BottomSheet'
 import { OnboardingSlides, type OnboardingSlide } from '../../components/ui/OnboardingSlides'
 import { useOnboarding } from '../../hooks/useOnboarding'
 import { useViewNavigate } from '../../hooks/useViewNavigate'
+import { apiDownload } from '../../lib/api'
 import { useLocations } from '../../features/locations/useLocations'
 import {
   useCreateInventoryBundle,
@@ -190,6 +191,25 @@ export function InventoryPage() {
     }
   }
 
+  const handleDownloadReorder = async (format: 'csv' | 'pdf') => {
+    if (!reorderLocationId) {
+      addToast('Bitte eine Location wählen.', 'error')
+      return
+    }
+    const filename = `reorder-${reorderLocationId}.${format}`
+    try {
+      await apiDownload(
+        `/api/v1/reorder/locations/${reorderLocationId}/export/${format}`,
+        filename,
+      )
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Download fehlgeschlagen.',
+        'error',
+      )
+    }
+  }
+
   const handleSaveReorderSetting = async () => {
     if (!reorderLocationId) {
       addToast('Bitte eine Location wählen.', 'error')
@@ -361,11 +381,19 @@ export function InventoryPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Nachbestellliste
               </h3>
-              {reorderOverview?.completed_at && (
-                <span className="text-xs text-muted-foreground">
-                  Letzte Inventur: {new Date(reorderOverview.completed_at).toLocaleDateString()}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {reorderOverview?.completed_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Letzte Inventur: {new Date(reorderOverview.completed_at).toLocaleDateString()}
+                  </span>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => handleDownloadReorder('csv')}>
+                  CSV
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDownloadReorder('pdf')}>
+                  PDF
+                </Button>
+              </div>
             </div>
 
             {reorderLoading ? (

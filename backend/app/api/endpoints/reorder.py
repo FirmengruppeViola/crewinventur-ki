@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from typing import Any
+from io import StringIO
+import csv
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import UserContext, get_current_user_context
 from app.core.supabase import get_supabase
+from app.services.pdf_generator import generate_reorder_pdf
 
 router = APIRouter()
 
@@ -82,13 +85,12 @@ def _load_quantity_map(supabase, session_id: str) -> dict[str, float]:
     return quantity_map
 
 
-@router.get("/reorder/locations/{location_id}")
-def get_reorder_overview(
+def _build_reorder_overview(
+    supabase,
+    current_user: UserContext,
     location_id: str,
-    only_below: bool = Query(True, description="Only items below minimum stock"),
-    current_user: UserContext = Depends(get_current_user_context),
-):
-    supabase = get_supabase()
+    only_below: bool,
+) -> dict[str, Any]:
     owner_id = current_user.effective_owner_id
     location = _require_location_access(current_user, location_id, owner_id, supabase)
 
@@ -151,6 +153,16 @@ def get_reorder_overview(
         "completed_at": session.get("completed_at") if session else None,
         "items": items,
     }
+
+
+@router.get("/reorder/locations/{location_id}")
+def get_reorder_overview(
+    location_id: str,
+    only_below: bool = Query(True, description="Only items below minimum stock"),
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    supabase = get_supabase()
+    return _build_reorder_overview(supabase, current_user, location_id, only_below)
 
 
 @router.get("/reorder/locations/{location_id}/settings")
@@ -278,3 +290,69 @@ def upsert_reorder_setting(
         "product_id": payload.product_id,
         "min_quantity": min_quantity,
     }
+
+
+@router.get("/reorder/locations/{location_id}/export/{format}")
+def export_reorder_list(
+    location_id: str,
+    format: str,
+    only_below: bool = Query(True, description="Only items below minimum stock"),
+    current_user: UserContext = Depends(get_current_user_context),
+):
+    if format not in {"csv", "pdf"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported export format",
+        )
+
+    supabase = get_supabase()
+    overview = _build_reorder_overview(supabase, current_user, location_id, only_below)
+    items = overview.get("items", [])
+
+    if format == "csv":
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "Produkt",
+                "Marke",
+                "Groesse",
+                "Einheit",
+                "Bestand",
+                "Mindestbestand",
+                "Fehlmenge",
+            ]
+        )
+        for item in items:
+            writer.writerow(
+                [
+                    item.get("product_name", ""),
+                    item.get("brand") or "",
+                    item.get("size") or "",
+                    item.get("unit") or "",
+                    item.get("current_quantity", 0),
+                    item.get("min_quantity", 0),
+                    item.get("deficit", 0),
+                ]
+            )
+
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=reorder-{location_id}.csv"
+            },
+        )
+
+    pdf_bytes = generate_reorder_pdf(
+        overview=overview,
+        items=items,
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=reorder-{location_id}.pdf"
+        },
+    )

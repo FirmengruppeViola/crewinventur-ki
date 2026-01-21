@@ -291,3 +291,64 @@ def generate_bundle_pdf(
         onLaterPages=lambda canvas, doc: _draw_footer(canvas, doc, generated_at),
     )
     return buffer.getvalue()
+
+
+def generate_reorder_pdf(
+    overview: dict,
+    items: list[dict],
+) -> bytes:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=20 * mm,
+        rightMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm,
+    )
+    styles = getSampleStyleSheet()
+    elements = []
+
+    location_name = overview.get("location_name") or "Location"
+    elements.append(Paragraph("Nachbestellliste", styles["Title"]))
+    elements.append(Paragraph(f"Location: {location_name}", styles["Normal"]))
+    if overview.get("completed_at"):
+        elements.append(
+            Paragraph(f"Letzte Inventur: {overview.get('completed_at')}", styles["Normal"])
+        )
+    elements.append(Spacer(1, 12))
+
+    data = [["Produkt", "Bestand", "Mindestbestand", "Fehlmenge"]]
+    for item in items:
+        product_name = " ".join(
+            [part for part in [item.get("brand"), item.get("product_name")] if part]
+        ).strip()
+        data.append(
+            [
+                product_name or item.get("product_name", "-"),
+                f"{item.get('current_quantity', 0)} {item.get('unit') or ''}".strip(),
+                f"{item.get('min_quantity', 0)} {item.get('unit') or ''}".strip(),
+                f"{item.get('deficit', 0)} {item.get('unit') or ''}".strip(),
+            ]
+        )
+
+    table = Table(data, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+            ]
+        )
+    )
+    elements.append(table)
+
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    doc.build(
+        elements,
+        onFirstPage=lambda canvas, doc: _draw_footer(canvas, doc, generated_at),
+        onLaterPages=lambda canvas, doc: _draw_footer(canvas, doc, generated_at),
+    )
+    return buffer.getvalue()
