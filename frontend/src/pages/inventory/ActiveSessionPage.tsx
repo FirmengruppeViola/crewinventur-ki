@@ -416,7 +416,7 @@ export function ActiveSessionPage() {
             </div>
             <Button
               className="w-full h-14 shadow-glow hover:shadow-glow-lg hover:scale-[1.01] active:scale-[0.99] transition-all"
-              onClick={handleComplete}
+              onClick={() => handleComplete()}
               loading={completeSession.isPending}
             >
               <Check className="mr-2 h-5 w-5" />
